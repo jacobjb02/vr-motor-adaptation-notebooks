@@ -43,7 +43,7 @@ def N_by_set_order(data):
 
 
 # grab baseline data and summarize
-def summarize_phase(data, phase):
+def summarize_phase(data, phase, y_col):
 
     # filter so we only have baseline data, make a copy
     phase_df = data.copy()
@@ -61,8 +61,8 @@ def summarize_phase(data, phase):
     # summarize baseline data by ppid x target and obtain baseline errors
     phase_df_summary = (
         phase_df.groupby(['ppid','target_x_label'], as_index=False, observed=True).agg(
-            mean_ball_dist_cm=('ball_dist_to_center_cm','mean'),
-            min_ball_dist_cm=('ball_dist_to_center_cm','min'),
+            mean_ball_dist_cm=(y_col,'mean'),
+            min_ball_dist_cm=(y_col,'min'),
             mean_ball_dist_x_cm=('error_x_plane','mean'),
             mean_ball_launch_dev=('launch_deviation','mean'),
             mean_ball_launch_speed=('launch_Speed','mean')

@@ -44,3 +44,26 @@ def crossed_threshold(row, col, val):
     z_vals = [float(z) for z in str(row[col]).split('_') if z]
     
     return max(z_vals) >= val
+
+
+
+# attempts to floor min distance measure
+def distance_target_ball_radii(data, 
+                               y_col, 
+                               target_radius=3.75, 
+                               ball_radius=5.0,
+                               epsilon=1e-6):
+
+    radii_sum = target_radius + ball_radius
+    corrected = data[y_col] - radii_sum
+    
+    # ensure non-negativity
+    corrected = corrected.clip(lower=epsilon)
+    
+    data[f"{y_col}_radii_fixed"] = corrected
+    return corrected
+
+
+    
+
+    

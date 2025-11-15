@@ -6,6 +6,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
+import pandas as pd
 
 
 
@@ -204,6 +205,7 @@ def plot_exposure_trials(
     data,
     y_col='baseline_corrected_dist',
     y_lim=(None,110.0),
+    x_col='trial_num_target_z',
     estimator='mean',
     context='notebook',
     font_scale=3,
@@ -211,47 +213,90 @@ def plot_exposure_trials(
     dpi=300
 ):
 
-    sns.set_context(context, font_scale) 
+    # make a local copy so we don’t mutate caller’s df
+    data = data.copy()
+
+    data[x_col] = data[x_col].astype(float)
+
+    # enforce category order
+    target_labels = ["neg0.6", "neg0.3", "p0.3", "p0.6"]
+    data["target_x_label"] = pd.Categorical(
+        data["target_x_label"],
+        categories=target_labels,
+        ordered=True,
+    )
+    data["set_order"] = data["set_order"].astype("category")
+
+    # explicit palette mapping: label -> colour
+    base_palette = sns.color_palette("bright", n_colors=len(target_labels))
+    palette_map = dict(zip(target_labels, base_palette))
+
+    sns.set_context(context, font_scale)
     sns.set_theme()
     sns.set_style("white")
 
-    # set facets by target
-    g = sns.FacetGrid(data, 
-                      col='target_x_label',
-                      col_order=["neg0.6", "neg0.3", "p0.3", "p0.6"],
-                      row='set_order', 
-                      sharex=True, 
-                      sharey=True)
+    g = sns.FacetGrid(
+        data,
+        col="target_x_label",
+        col_order=target_labels,
+        sharex=True,
+        sharey=True,
+    )
 
     g.set_titles("")
-    
-    # set Y lim to 110.0 cm
     g.set(ylim=y_lim)
-    
+
     # individual data
-    g.map_dataframe(sns.lineplot,
-                    x='phase_trial_target', y=y_col,
-                    estimator=None, units='ppid',
-                    hue = 'target_x_label', palette='bright',
-                    alpha=0.025)
-    
-    # mean line and se bands
-    g.map_dataframe(sns.lineplot,
-                    x='phase_trial_target', y=y_col,
-                    estimator=estimator, errorbar='se', err_kws={'alpha':0.25, 'linewidth':0},
-                    hue = 'target_x_label', palette='bright', alpha=1, dashes=True)
+    g.map_dataframe(
+        sns.lineplot,
+        x=x_col,
+        y=y_col,
+        estimator=None,
+        units="ppid",
+        hue="target_x_label",
+        palette=palette_map,
+        style="set_order",
+        alpha=0.025,
+        legend=False,  
+    )
 
-    g.fig.set_size_inches(14, 10.5)   # width, height in inches
-    
-    
-    # Save
+    # mean ± SE
+    g.map_dataframe(
+        sns.lineplot,
+        x=x_col,
+        y=y_col,
+        estimator=estimator,
+        errorbar="se",
+        err_kws={"alpha": 0.25, "linewidth": 0},
+        hue="target_x_label",
+        palette=palette_map,
+        alpha=1,
+        dashes=True,
+        legend=False,
+    )
+
+    g.fig.set_size_inches(14, 10.5)
+
+    # legend tha match the palette_map
+    handles = [
+        plt.Line2D([0], [0], color=palette_map[label], lw=3)
+        for label in target_labels
+    ]
+
+    g.fig.legend(
+        handles,
+        target_labels,
+        title="Target",
+        loc="upper right",
+        bbox_to_anchor=(1.12, 0.85),
+    )
+
     if save_path:
-        g.fig.savefig(save_path, dpi=dpi) 
+        g.fig.savefig(save_path, dpi=dpi)
 
-    # display
     plt.show()
-
     return g
+
 
 
 
