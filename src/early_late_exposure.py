@@ -7,6 +7,7 @@ import pandas as pd
 def early_late_means(
     df, 
     error_col,
+    ppid,
     phases = ['training_1', 'training_2'],
     window_size=8,
     include_status=False 
@@ -27,19 +28,19 @@ def early_late_means(
     
     ppid_block_target = (
         df_phase
-        .groupby(['ppid','phase','target_x_label'])
+        .groupby([ppid,'phase','speed_label','target_x_label'])
         .size()
         .reset_index(name='n_trials')
-        .sort_values(['ppid','phase','target_x_label'])
+        .sort_values([ppid,'phase','target_x_label'])
     )
     
 
     # order within each (ppid, target, block) by trial order
     ordered = (df_phase
-               .sort_values(['ppid','target_x_label','phase','trial_num_target'])
-               .groupby(['ppid','target_x_label','phase'], group_keys=False))
+               .sort_values([ppid,'target_x_label','phase','trial_num_target'])
+               .groupby([ppid,'target_x_label','phase','speed_label'], group_keys=False))
 
-    counts = (df_phase.groupby(['ppid','target_x_label','phase'], observed=True)
+    counts = (df_phase.groupby([ppid,'target_x_label','phase','speed_label'], observed=True)
                 .size())
 
     # take early/late trials per (ppid, target, block)
@@ -52,14 +53,14 @@ def early_late_means(
 
     # store trial_num_target lists for each grouping
     trial_lists = (
-        early_to_late.groupby(['ppid','target_x_label','phase','section'])
+        early_to_late.groupby([ppid,'target_x_label','phase','section'])
                    .agg(trial_list=('trial_num_target', list))
                    .reset_index()
     )
 
 
     # collapse to ONE row per subject x cell for ANOVA
-    groupby_cols = ['ppid','section','target_x_label','set_order','phase']
+    groupby_cols = [ppid,'section','target_x_label','set_order','phase','speed_label']
     if include_status:
         groupby_cols.append('training_status')  
         

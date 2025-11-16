@@ -60,6 +60,8 @@ def plot_trial_schedule(
 # baseline plot
 def plot_baseline(
     data,
+    ppid_col,
+    cond_col,
     y_col='ball_dist_to_center_cm',
     y_lim=(None,50.0),
     context='notebook',
@@ -90,7 +92,7 @@ def plot_baseline(
     
     # individual data
     g.map_dataframe(sns.lineplot,
-                    data=data, units='ppid', estimator=None,
+                    data=data, units=ppid_col, estimator=None,
                     x='trial_num_target', y=y_col,
                     linewidth = 2, hue='target_x_label', alpha=0.10
                    )
@@ -100,7 +102,7 @@ def plot_baseline(
                     data=data,
                     x='trial_num_target', y=y_col,
                     estimator='mean', errorbar='se', err_kws={'alpha':0.35, 'linewidth':0},
-                    linewidth=3, hue='target_x_label'
+                    linewidth=3, hue='target_x_label', style=cond_col
                    )
                     
     # set axis labels
@@ -126,6 +128,8 @@ def plot_baseline(
 # early late exposure
 def plot_early_late_exposure(
     data,
+    cond_col,
+    ppid_col,
     y_col='mean_dist',
     context='notebook',
     font_scale=3,
@@ -133,68 +137,95 @@ def plot_early_late_exposure(
     dpi=300
 ):
 
-    sns.set_context(context, font_scale) 
+    # Ensure categories
+    data[cond_col] = data[cond_col].astype('category')
+    data['target_x_label'] = data['target_x_label'].astype('category')
+
+    print(f"\nCondition levels ({cond_col}): {list(data[cond_col].cat.categories)}")
+    print(f"Target levels: {list(data['target_x_label'].cat.categories)}\n")
+
+    sns.set_context(context, font_scale)
     sns.set_theme()
     sns.set_style("white")
 
-    # first and last 10 trials of exposure
-    g = sns.FacetGrid(data, 
-                      col = 'target_x_label',
-                      col_order=["neg0.6", "neg0.3", "p0.3", "p0.6"],
-                      row='set_order')
+    g = sns.FacetGrid(
+        data,
+        col='set_order',
+        row=cond_col,
+        sharey=True,
+        sharex=True,
+        margin_titles=True
+    )
 
-    # no titles
     g.set_titles("")
 
-    # colour palette
+    # phase-based palette for raw points
     phase_palette = {
-                    'baseline':   '#a9c358',
-                    'training_1': '#58b5e1',
-                    'washout_1':  '#56ebd3',
-                    'training_2': '#691b9e',
-                    'washout_2':  '#115d52',
-                    }
-    
-    # individual participant data points
-    g.map_dataframe(sns.stripplot,
-                    x='section', y=y_col,
-                    order=['early','late'],
-                    hue='phase', # hue='training_status'
-                    palette=phase_palette,
-                    jitter=0.0, alpha=0.7, size=5, linewidth=0
-                   )
-    
-    g.add_legend(title="Phase")
-    
-    # individual participant lines
-    g.map_dataframe(sns.lineplot,
-                    x='section', y=y_col,
-                    units='ppid', estimator=None, color='0.4',
-                    alpha=0.4, linewidth=1
-                   )
-    
-    # mean line and se bands
-    g.map_dataframe(sns.pointplot,
-                    x='section', y=y_col,
-                    order=['early','late'], 
-                    hue='target_x_label', palette='bright', alpha = 0.7,
-                    estimator=np.mean, errorbar='se', capsize=.15)
+        'baseline':   '#a9c358',
+        'training_1': '#58b5e1',
+        'washout_1':  '#56ebd3',
+        'training_2': '#691b9e',
+        'washout_2':  '#115d52',
+    }
 
+    # INDIVIDUAL DOTS
+    g.map_dataframe(
+        sns.stripplot,
+        x='section', y=y_col,
+        hue='phase',
+        order=['early', 'late'],
+        palette=phase_palette,
+        jitter=0.05, alpha=0.7, size=5
+    )
 
-    g.fig.set_size_inches(14, 10.5)   # width, height in inches
-    
-    # Save
+    # add legend ONLY for phases
+    handles, labels = g.axes[0,0].get_legend_handles_labels()
+    g.axes[0,0].legend(handles, labels, title="Phase")
+
+    # INDIVIDUAL TRAJECTORY LINES (gray)
+    g.map_dataframe(
+        sns.lineplot,
+        x='section', y=y_col,
+        units=ppid_col, estimator=None,
+        color='0.4', alpha=0.35, linewidth=1
+    )
+
+    # SUMMARY POINTS (target hue)
+    g.map_dataframe(
+        sns.pointplot,
+        x='section', y=y_col,
+        order=['early','late'],
+        hue='target_x_label',
+        palette='bright',
+        dodge=0.5,
+        estimator=np.mean,
+        errorbar='se',
+        capsize=0.15
+    )
+
+    # target legend manually added to figure (avoids double legends)
+    target_levels = list(data['target_x_label'].cat.categories)
+    palette = sns.color_palette('bright', len(target_levels))
+    target_handles = [plt.Line2D([0], [0], marker='o', color=palette[i],
+                                 linestyle='-', markersize=10)
+                      for i in range(len(target_levels))]
+
+    g.fig.legend(
+        target_handles,
+        target_levels,
+        title="Target",
+        loc="upper right",
+        bbox_to_anchor=(1.15, 0.95)
+    )
+
+    # formatting
+    g.fig.set_size_inches(14, 10.5)
+
     if save_path:
-        g.fig.savefig(save_path, dpi=dpi) 
+        g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
 
-    # display
     plt.show()
-
-
-
     return g
-
-
 
 
 
@@ -203,33 +234,29 @@ def plot_early_late_exposure(
 # all exposure
 def plot_exposure_trials(
     data,
+    cond_col,
+    ppid_col,
     y_col='baseline_corrected_dist',
     y_lim=(None,110.0),
-    x_col='trial_num_target_z',
+    x_col='trial_num_target',
     estimator='mean',
     context='notebook',
     font_scale=3,
     save_path='../figures/exposure_trials_by_target_x_set.pdf',
     dpi=300
 ):
-
-    # make a local copy so we don’t mutate caller’s df
     data = data.copy()
-
     data[x_col] = data[x_col].astype(float)
 
-    # enforce category order
-    target_labels = ["neg0.6", "neg0.3", "p0.3", "p0.6"]
-    data["target_x_label"] = pd.Categorical(
-        data["target_x_label"],
-        categories=target_labels,
-        ordered=True,
-    )
+    # sort levels to preserve interpretable order
+    labels = sorted(data[cond_col].unique(), key=str)
+
+    data[cond_col] = pd.Categorical(data[cond_col],
+                                    categories=labels,
+                                    ordered=True)
     data["set_order"] = data["set_order"].astype("category")
 
-    # explicit palette mapping: label -> colour
-    base_palette = sns.color_palette("bright", n_colors=len(target_labels))
-    palette_map = dict(zip(target_labels, base_palette))
+    palette_map = dict(zip(labels, sns.color_palette("bright", len(labels))))
 
     sns.set_context(context, font_scale)
     sns.set_theme()
@@ -237,68 +264,52 @@ def plot_exposure_trials(
 
     g = sns.FacetGrid(
         data,
-        col="target_x_label",
-        col_order=target_labels,
+        row='set_order',
+        col='target_x_label',
         sharex=True,
         sharey=True,
     )
-
-    g.set_titles("")
     g.set(ylim=y_lim)
 
-    # individual data
+    # individual participant traces
     g.map_dataframe(
         sns.lineplot,
-        x=x_col,
-        y=y_col,
-        estimator=None,
-        units="ppid",
-        hue="target_x_label",
+        x=x_col, y=y_col,
+        units=ppid_col, estimator=None,
+        hue=cond_col, style=cond_col,
         palette=palette_map,
-        style="set_order",
-        alpha=0.025,
-        legend=False,  
+        alpha=0.03
     )
 
-    # mean ± SE
+    # mean + SE
     g.map_dataframe(
         sns.lineplot,
-        x=x_col,
-        y=y_col,
+        x=x_col, y=y_col,
         estimator=estimator,
-        errorbar="se",
-        err_kws={"alpha": 0.25, "linewidth": 0},
-        hue="target_x_label",
+        errorbar='se', err_kws={"alpha":0.25,"linewidth":0},
+        hue=cond_col, style=cond_col,
         palette=palette_map,
-        alpha=1,
-        dashes=True,
-        legend=False,
+        alpha=1, dashes=True
     )
 
     g.fig.set_size_inches(14, 10.5)
 
-    # legend tha match the palette_map
+    legend_title = cond_col.replace("_"," ").title()
+
     handles = [
-        plt.Line2D([0], [0], color=palette_map[label], lw=3)
-        for label in target_labels
+        plt.Line2D([0],[0], color=palette_map[label], lw=3)
+        for label in labels
     ]
 
-    g.fig.legend(
-        handles,
-        target_labels,
-        title="Target",
-        loc="upper right",
-        bbox_to_anchor=(1.12, 0.85),
-    )
+    g.fig.legend(handles, labels,
+                 title=legend_title,
+                 loc="upper right", bbox_to_anchor=(1.12,0.85))
 
     if save_path:
         g.fig.savefig(save_path, dpi=dpi)
 
     plt.show()
     return g
-
-
-
 
 def plot_exposure_trials_2m(
     data,
@@ -360,6 +371,7 @@ def plot_exposure_trials_2m(
 # generalization plot
 def plot_generalization(
     data,
+    cond_col,
     y_col='mean_dist',
     context='notebook',
     font_scale=3,
@@ -377,12 +389,13 @@ def plot_generalization(
         
     # set facets by target
     g = sns.FacetGrid(data, 
+                      row=cond_col,
                       col='target_x_label', 
                       col_order=["neg0.6", "neg0.3", "p0.3", "p0.6"],
                       sharex=True, 
                       sharey=True)    
     # no titles
-    g.set_titles("")
+    #g.set_titles("")
 
     
     # individual data
@@ -390,7 +403,8 @@ def plot_generalization(
                     x='phase', y=y_col,
                     order=['training_1','training_2'],
                     hue='set_order',
-                    jitter=0.15, alpha=0.5, size=5, linewidth=0
+                    jitter=0.15, alpha=0.5, size=5, linewidth=0,
+                    legend=False
     )
     
     
@@ -398,12 +412,16 @@ def plot_generalization(
     g.map_dataframe(sns.pointplot,
                     x='phase', y=y_col,
                     order=['training_1','training_2'],
-                    hue='target_x_label', palette='bright', alpha = 0.7,
-                    estimator=np.mean, errorbar='se', capsize=.15
+                    hue=cond_col, palette='bright', alpha = 0.7,
+                    estimator=np.mean, errorbar='se', capsize=.15,
+                    legend=True
     )
 
 
     g.fig.set_size_inches(14, 7)   # width, height in inches
+
+    # Add legend
+    g.add_legend(title="Speed Label")
 
         
     # Save
@@ -500,11 +518,14 @@ def plot_solution_space(
 # generalization plot
 def plot_baseline_washout(
     data,
+    ppid_col,
+    speed_col,
     y_col='launch_deviation',
     y_lim=(-10,50),
     start_trial=7,
     block_len=4,
     show_hits=False,
+    show_speeds=False,
     marker_size=4,
     context='notebook',
     font_scale=3,
@@ -526,7 +547,7 @@ def plot_baseline_washout(
     # individual data
     g.map_dataframe(sns.lineplot,
                     x='phase_trial_target', y=y_col,
-                    estimator=None, units='ppid',
+                    estimator=None, units=ppid_col,
                     hue = 'target_x_label', palette='bright',
                     alpha=0.1)
 
@@ -552,6 +573,23 @@ def plot_baseline_washout(
                         )
         
         g.add_legend(title="Target Hit")
+
+    elif show_speeds == True:
+
+        g.map_dataframe(
+                        sns.lineplot,
+                        x='phase_trial_target', y=y_col,
+                        estimator='mean', errorbar='se',
+                        hue='target_x_label',
+                        style=speed_col,
+                        palette='bright',
+                        markers=True,
+                        markersize=marker_size,
+                        alpha=1
+                        )
+        
+        g.add_legend(title="Target Hit")
+
 
     else:   
         # mean line and se bands

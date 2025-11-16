@@ -20,18 +20,20 @@ def point_of_crossing_x(row):
 
 
 # check number of ppid per set order
-def N_by_set_order(data):
+def N_by_set_order(data,
+                  group_cols
+                  ):
 
     # check reqiured cols
-    assert 'ppid' in data.columns and 'set_order' in data.columns, \
-            "Data must contain 'ppid' and 'set_order'"
+    assert group_cols in data.columns and 'set_order' in data.columns, \
+            "Data must contain ppid_col and 'set_order'"
 
-    ppid_list = data['ppid']
+    ppid_list = data[group_cols]
 
     print(f'Number of Participants in data: {len(ppid_list.unique())}')
 
     # check number of ppid per set order:
-    counts = np.array(data.groupby('set_order')['ppid'].nunique().reset_index())
+    counts = np.array(data.groupby('set_order')[group_cols].nunique().reset_index())
     
     # set order 1 n
     n_1 = counts[0,1]
@@ -43,7 +45,7 @@ def N_by_set_order(data):
 
 
 # grab baseline data and summarize
-def summarize_phase(data, phase, y_col):
+def summarize_phase(data, phase, y_col, ppid_col):
 
     # filter so we only have baseline data, make a copy
     phase_df = data.copy()
@@ -60,7 +62,7 @@ def summarize_phase(data, phase, y_col):
 
     # summarize baseline data by ppid x target and obtain baseline errors
     phase_df_summary = (
-        phase_df.groupby(['ppid','target_x_label'], as_index=False, observed=True).agg(
+        phase_df.groupby([ppid_col,'target_x_label'], as_index=False, observed=True).agg(
             mean_ball_dist_cm=(y_col,'mean'),
             min_ball_dist_cm=(y_col,'min'),
             mean_ball_dist_x_cm=('error_x_plane','mean'),
