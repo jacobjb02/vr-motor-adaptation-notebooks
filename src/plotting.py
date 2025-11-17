@@ -236,6 +236,7 @@ def plot_exposure_trials(
     data,
     cond_col,
     ppid_col,
+    show_zero_line=False,
     y_col='baseline_corrected_dist',
     y_lim=(None,110.0),
     x_col='trial_num_target',
@@ -304,6 +305,13 @@ def plot_exposure_trials(
     g.fig.legend(handles, labels,
                  title=legend_title,
                  loc="upper right", bbox_to_anchor=(1.12,0.85))
+
+
+    if show_zero_line == True:
+        for ax in g.axes.flat:
+            ax.axhline(y=0.0, color = 'black', linestyle='--', alpha = 0.3)
+            ax.set_xticks(range(1, int(data[x_col].max()) + 1, 4))
+    
 
     if save_path:
         g.fig.savefig(save_path, dpi=dpi)
@@ -635,6 +643,59 @@ def plot_baseline_washout(
     plt.show()
 
     return g
+
+
+
+
+
+
+def plot_density_targets(
+    data,
+    x_col,
+    cond_col,
+    r_col='set_order',
+    c_col='target_x_label',
+    context='notebook',
+    font_scale=3,
+    save_path='../figures/baseline_trials_by_target.pdf',
+    dpi=300
+):
+    sns.set_context(context, font_scale) 
+    sns.set_theme()
+    sns.set_style("white")
+
+    # create facets by row and column
+    g = sns.FacetGrid(
+        data,
+        row=r_col,
+        col=c_col,
+        hue=cond_col,
+        sharex=True,
+        sharey=True,
+        legend_out=True
+    )
+
+    # Map KDE to each facet
+    g.map_dataframe(
+        sns.kdeplot,
+        x=x_col,
+        fill=True,  
+        alpha=0.3 
+    )
+
+    g.add_legend(title=cond_col)
+
+    # adjust figure size
+    g.fig.set_size_inches(14, 7)
+
+    if save_path:
+        g.fig.savefig(save_path, dpi=dpi)
+
+    plt.show()
+    return g
+
+
+    
     
 
 

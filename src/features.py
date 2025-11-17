@@ -3,6 +3,7 @@ Adding important columns or investigating data values.
 """
 
 import numpy as np
+import pandas as pd
 
 
 # function to extract the point along the ball trajectory when the ball's x position is closest to the target x position, and find the distance
@@ -83,3 +84,24 @@ def summarize_phase(data, phase, y_col, ppid_col):
 
 
 
+def order_targets(data,
+                  order_array=np.array([1,0,2,3]),
+                  order_col='target_x_label'):
+
+    orig = np.unique(data[order_col])
+    
+    target_layout_order = np.array(order_array)
+    
+    new_order = orig[target_layout_order]
+    
+    # apply as categorical ordering
+    data[order_col] = pd.Categorical(
+        data[order_col],
+        categories=new_order,
+        ordered=True
+    )
+
+    print(data[order_col])
+
+    return data
+    
