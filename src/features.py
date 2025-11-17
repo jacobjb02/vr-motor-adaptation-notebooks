@@ -46,7 +46,7 @@ def N_by_set_order(data,
 
 
 # grab baseline data and summarize
-def summarize_phase(data, phase, y_col, ppid_col):
+def summarize_phase(data, phase, y_col, ppid_col, lat_error_col):
 
     # filter so we only have baseline data, make a copy
     phase_df = data.copy()
@@ -66,7 +66,7 @@ def summarize_phase(data, phase, y_col, ppid_col):
         phase_df.groupby([ppid_col,'target_x_label'], as_index=False, observed=True).agg(
             mean_ball_dist_cm=(y_col,'mean'),
             min_ball_dist_cm=(y_col,'min'),
-            mean_ball_dist_x_cm=('error_x_plane','mean'),
+            mean_ball_dist_x_cm=(lat_error_col,'mean'),
             mean_ball_launch_dev=('launch_deviation','mean'),
             mean_ball_launch_speed=('launch_Speed','mean')
         )

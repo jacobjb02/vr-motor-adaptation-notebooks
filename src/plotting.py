@@ -242,6 +242,7 @@ def plot_exposure_trials(
     x_col='trial_num_target',
     estimator='mean',
     context='notebook',
+    marker_size=4,
     font_scale=3,
     save_path='../figures/exposure_trials_by_target_x_set.pdf',
     dpi=300
@@ -287,8 +288,11 @@ def plot_exposure_trials(
         sns.lineplot,
         x=x_col, y=y_col,
         estimator=estimator,
+        linewidth=1.5,
         errorbar='se', err_kws={"alpha":0.25,"linewidth":0},
         hue=cond_col, style=cond_col,
+        markers=True,
+        markersize=marker_size,
         palette=palette_map,
         alpha=1, dashes=True
     )
@@ -652,6 +656,7 @@ def plot_baseline_washout(
 def plot_density_targets(
     data,
     x_col,
+    x_lim,
     cond_col,
     r_col='set_order',
     c_col='target_x_label',
@@ -683,6 +688,8 @@ def plot_density_targets(
         alpha=0.3 
     )
 
+    g.set(xlim = x_lim)
+
     g.add_legend(title=cond_col)
 
     # adjust figure size
@@ -693,6 +700,49 @@ def plot_density_targets(
 
     plt.show()
     return g
+
+
+
+
+def plot_min_x_z(data,
+                 c_col,
+                 r_col,
+                 context='notebook',
+                 font_scale=3,
+                 save_path='../figures/baseline_trials_by_target.pdf',
+                 dpi=300
+                ):
+
+
+    # set grid and make facets by target
+    g = sns.FacetGrid(data, 
+                      col=c_col,
+                      row=r_col,
+                      sharex=True, sharey=True)
+
+
+
+    g.map_dataframe(sns.scatterplot,
+                    data=data,
+                    x='min_pos_from_target_x', y='min_pos_from_target_z',
+                    alpha=0.02
+                   )
+
+
+    g.fig.set_size_inches(14, 7)   # width, height in inches
+    
+    # save figure
+    if save_path:
+        g.fig.savefig(save_path, dpi=dpi) 
+        
+    # display
+    plt.show()
+
+    return g
+
+
+
+# update with targets and water speed
 
 
     
