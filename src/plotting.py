@@ -135,7 +135,7 @@ def plot_early_late_exposure(
     data,
     cond_col,
     ppid_col,
-    y_col='mean_dist',
+    y_col='mean_x_delta_cm',
     context='notebook',
     font_scale=3,
     save_path='../figures/early_late_exposure_by_target_x_set.pdf',
@@ -390,6 +390,7 @@ def plot_generalization(
     data,
     cond_col,
     y_col='mean_dist',
+    show_zero_line=True,
     context='notebook',
     font_scale=3,
     save_path='../figures/generalization_by_set.pdf',
@@ -431,14 +432,14 @@ def plot_generalization(
                     order=['training_1','training_2'],
                     hue=cond_col, palette='bright', alpha = 0.7,
                     estimator=np.mean, errorbar='se', capsize=.15,
-                    legend=True
+                    legend=False
     )
 
 
     g.fig.set_size_inches(14, 7)   # width, height in inches
 
-    # Add legend
-    g.add_legend(title="Speed Label")
+    for ax in g.axes.flat:
+        ax.axhline(y=0.0, color='black', linestyle='--', alpha=0.3)
 
         
     # Save

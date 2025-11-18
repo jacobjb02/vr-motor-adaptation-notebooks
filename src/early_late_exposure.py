@@ -65,8 +65,8 @@ def early_late_means(
         groupby_cols.append('training_status')  
         
     summary_early_to_late = (early_to_late.groupby(groupby_cols, as_index=False, observed=True)
-              .agg(mean_dist=(error_col, 'mean'),
-                   var_dist=(error_col, 'var'),   
+              .agg(mean_x_delta_cm=(error_col, 'mean'),
+                   var_x_delta_cm=(error_col, 'var'),   
                    n=('trial_num_target', 'size')))
 
     # ordered factor for section

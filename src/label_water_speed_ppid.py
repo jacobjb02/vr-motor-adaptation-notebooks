@@ -18,12 +18,24 @@ def label_water_condtion_ppid(data,
     
     data_subset['speed_label'] = data_subset.groupby([ppid_col,'experiment'])[water_col].transform('min')
 
+    def encode_speed(vals):
+
+        v = float(vals)
+        if v < 0:
+            return f"neg{abs(int(v))}"
+        else:
+            return f"pos{int(v)}"
+
+        
+
+    data_subset['speed_label_safe'] = data_subset['speed_label'].apply(encode_speed)
+
     
     # create combined ppid label:
     data_subset['ppid_full'] = (
         data_subset[ppid_col].astype(str)
         + "_" +
-        data_subset['speed_label'].astype(str)
+        data_subset['speed_label_safe'].astype(str)
     )
 
     return data_subset
