@@ -51,19 +51,15 @@ def plot_trial_schedule(
     return g
 
 
-
-
-
-
-    
-
-# baseline plot
 def plot_baseline(
     data,
     ppid_col,
     cond_col,
+    x_col='trial_num_target',
     y_col='ball_dist_to_center_cm',
+    x_lim=(7,13),
     y_lim=(None,50.0),
+    show_zero_line=True,
     context='notebook',
     font_scale=3,
     save_path='../figures/baseline_trials_by_target.pdf',
@@ -88,25 +84,31 @@ def plot_baseline(
     
     # x and y lims
     g.set(ylim=y_lim)
-    g.set(xlim=(7, 13))
+    g.set(xlim=x_lim)
     
     # individual data
     g.map_dataframe(sns.lineplot,
                     data=data, units=ppid_col, estimator=None,
-                    x='trial_num_target', y=y_col,
+                    x=x_col, y=y_col,
                     linewidth = 2, hue='target_x_label', alpha=0.10
                    )
     
     # mean data
     g.map_dataframe(sns.lineplot,
                     data=data,
-                    x='trial_num_target', y=y_col,
+                    x=x_col, y=y_col,
                     estimator='mean', errorbar='se', err_kws={'alpha':0.35, 'linewidth':0},
                     linewidth=3, hue='target_x_label', style=cond_col
                    )
                     
     # set axis labels
     #g.set_axis_labels('Trial Number (per target)', 'Min Distance (cm)')
+
+        
+    if show_zero_line == True:
+        for ax in g.axes.flat:
+            ax.axhline(y=0.0, color = 'black', linestyle='--', alpha = 0.3)
+            ax.set_xticks(range(int(x_lim[0] + 1), int(x_lim[1] + 1), 4))
 
     # make trial numbers integers
     for ax in g.axes.flat:
@@ -122,6 +124,9 @@ def plot_baseline(
     plt.show()
 
     return g
+
+
+
 
 
 

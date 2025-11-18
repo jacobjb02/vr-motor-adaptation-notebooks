@@ -103,5 +103,5 @@ def order_targets(data,
 
     print(data[order_col])
 
-    return data
+    return data[order_col]
     
