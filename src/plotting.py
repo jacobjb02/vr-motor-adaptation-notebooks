@@ -57,7 +57,7 @@ def plot_baseline(
     cond_col,
     x_col='trial_num_target',
     y_col='ball_dist_to_center_cm',
-    x_lim=(7,13),
+    x_lim=(6,13),
     y_lim=(None,50.0),
     show_zero_line=True,
     context='notebook',
@@ -523,6 +523,7 @@ def plot_baseline_washout(
     y_lim=(-10,50),
     start_trial=7,
     block_len=4,
+    divide_phases=False,
     show_hits=False,
     show_speeds=False,
     marker_size=4,
@@ -619,11 +620,12 @@ def plot_baseline_washout(
         ax.axhline(y=0.0, color = 'black', linestyle='--', alpha = 0.3)
         ax.set_xticks(range(1, int(data['phase_trial_target'].max()) + 1, 4))
     
-    
-    # add vertical line at x = 7 (seperates baseline from washout: washout starts on x = 7)
-    for ax in g.axes.flat:
-        ax.axvline(x=start_trial - 0.5, color='red', linestyle='--', linewidth=1, alpha=0.8)
-    
+
+    if divide_phases == True:
+        # add vertical line at x = 6 (seperates baseline from washout: washout starts on x = 7)
+        for ax in g.axes.flat:
+            ax.axvline(x=start_trial - 0.5, color='red', linestyle='--', linewidth=1, alpha=0.8)
+        
     g.fig.set_size_inches(14, 7)   # width, height in inches
 
     # Save

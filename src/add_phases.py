@@ -31,9 +31,9 @@ def df_add_phases(
                        
                        phase_array,
                        
-                       trial_lo = np.array([1,25,53,203,275,425]),
+                       trial_lo = np.array([1,21,53,203,275,425]),
 
-                       trial_hi = np.array([24,52,202,274,424,496])
+                       trial_hi = np.array([20,52,202,274,424,496])
     
                       ):
 
