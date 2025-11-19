@@ -76,11 +76,9 @@ def plot_baseline(
     # set grid and make facets by target
     g = sns.FacetGrid(data, 
                       col='target_x_label',
-                      col_order=["neg0.6", "neg0.3", "p0.3", "p0.6"],
                       sharex=False, sharey=True)
 
     # clean facet titles 
-    g.set_titles("")
     
     # x and y lims
     g.set(ylim=y_lim)
@@ -135,95 +133,79 @@ def plot_early_late_exposure(
     data,
     cond_col,
     ppid_col,
+    x_col='section',
     y_col='mean_x_delta_cm',
+    show_zero_line=False,
     context='notebook',
     font_scale=3,
     save_path='../figures/early_late_exposure_by_target_x_set.pdf',
     dpi=300
 ):
 
-    # Ensure categories
-    data[cond_col] = data[cond_col].astype('category')
-    data['target_x_label'] = data['target_x_label'].astype('category')
-
-    print(f"\nCondition levels ({cond_col}): {list(data[cond_col].cat.categories)}")
-    print(f"Target levels: {list(data['target_x_label'].cat.categories)}\n")
-
     sns.set_context(context, font_scale)
     sns.set_theme()
     sns.set_style("white")
 
+    palette = sns.color_palette('bright')
+    
+    data = data.copy()
+    data[cond_col] = pd.Categorical(
+        data[cond_col],
+        categories=[-2, -3],  
+        ordered=True
+    )
+
+
     g = sns.FacetGrid(
         data,
-        col='set_order',
-        row=cond_col,
+        col='target_x_label',
+        row='set_order',
         sharey=True,
         sharex=True,
         margin_titles=True
     )
 
-    g.set_titles("")
-
-    # phase-based palette for raw points
-    phase_palette = {
-        'baseline':   '#a9c358',
-        'training_1': '#58b5e1',
-        'washout_1':  '#56ebd3',
-        'training_2': '#691b9e',
-        'washout_2':  '#115d52',
-    }
-
-    # INDIVIDUAL DOTS
+    # individual data points
     g.map_dataframe(
         sns.stripplot,
-        x='section', y=y_col,
-        hue='phase',
+        x=x_col, y=y_col,
+        hue=cond_col,
         order=['early', 'late'],
-        palette=phase_palette,
-        jitter=0.05, alpha=0.7, size=5
+        jitter=0.05, alpha=0.50, size=5,
+        palette=palette,
+        legend=False
     )
 
-    # add legend ONLY for phases
-    handles, labels = g.axes[0,0].get_legend_handles_labels()
-    g.axes[0,0].legend(handles, labels, title="Phase")
-
-    # INDIVIDUAL TRAJECTORY LINES (gray)
+    # individual participant lines
     g.map_dataframe(
         sns.lineplot,
         x='section', y=y_col,
         units=ppid_col, estimator=None,
-        color='0.4', alpha=0.35, linewidth=1
+        color='0.4', alpha=0.20, linewidth=1,
+        legend=False
     )
 
-    # SUMMARY POINTS (target hue)
+    # mean line and SE
     g.map_dataframe(
         sns.pointplot,
-        x='section', y=y_col,
-        order=['early','late'],
-        hue='target_x_label',
-        palette='bright',
-        dodge=0.5,
+        x=x_col, y=y_col,
+        order=['early','late'], 
+        hue=cond_col,
+        palette=palette,
+        alpha=0.7,
         estimator=np.mean,
         errorbar='se',
-        capsize=0.15
+        capsize=.15,
+        legend=True
     )
 
-    # target legend manually added to figure (avoids double legends)
-    target_levels = list(data['target_x_label'].cat.categories)
-    palette = sns.color_palette('bright', len(target_levels))
-    target_handles = [plt.Line2D([0], [0], marker='o', color=palette[i],
-                                 linestyle='-', markersize=10)
-                      for i in range(len(target_levels))]
+    if show_zero_line:
+        for ax in g.axes.flat:
+            ax.axhline(0.0, color='black', linestyle='--', alpha=0.3)
+            ax.set_xticks([0, 1])
+    
+    g.add_legend(title=cond_col)
 
-    g.fig.legend(
-        target_handles,
-        target_levels,
-        title="Target",
-        loc="upper right",
-        bbox_to_anchor=(1.15, 0.95)
-    )
-
-    # formatting
     g.fig.set_size_inches(14, 10.5)
 
     if save_path:
@@ -231,7 +213,6 @@ def plot_early_late_exposure(
 
     plt.show()
     return g
-
 
 
 
