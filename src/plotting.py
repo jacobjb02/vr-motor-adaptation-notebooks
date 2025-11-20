@@ -519,9 +519,10 @@ def plot_baseline_washout(
     data,
     ppid_col,
     speed_col,
+    x_col='phase_trial_target',
     y_col='launch_deviation',
     y_lim=(-10,50),
-    start_trial=7,
+    start_trial=6,
     block_len=4,
     divide_phases=False,
     show_hits=False,
@@ -546,7 +547,7 @@ def plot_baseline_washout(
 
     # individual data
     g.map_dataframe(sns.lineplot,
-                    x='phase_trial_target', y=y_col,
+                    x=x_col, y=y_col,
                     estimator=None, units=ppid_col,
                     hue = 'target_x_label', palette='bright',
                     alpha=0.1)
@@ -561,7 +562,7 @@ def plot_baseline_washout(
         
         g.map_dataframe(
                         sns.lineplot,
-                        x='phase_trial_target', y=y_col,
+                        x=x_col, y=y_col,
                         estimator='mean', errorbar='se',
                         hue='target_hit',
                         style='target_hit',
@@ -578,7 +579,7 @@ def plot_baseline_washout(
 
         g.map_dataframe(
                         sns.lineplot,
-                        x='phase_trial_target', y=y_col,
+                        x=x_col, y=y_col,
                         estimator='mean', errorbar='se',
                         hue='target_x_label',
                         style=speed_col,
@@ -594,23 +595,27 @@ def plot_baseline_washout(
     else:   
         # mean line and se bands
         g.map_dataframe(sns.lineplot,
-                        x='phase_trial_target', y=y_col, marker='o', markersize=marker_size,
+                        x=x_col, y=y_col, marker='o', markersize=marker_size,
                         estimator='mean', errorbar='se', err_kws={'alpha':0.25, 'linewidth':0},
                         hue = 'target_x_label', palette='bright', alpha=1, dashes=True)
 
 
     # final trial per target 
-    end_trial = data['phase_trial_target'].max()      # 36 total trials per target
+    end_trial = data[x_col].max()      # 36 total trials per target
+    print(end_trial)
     
     # total number of blocks
     blocks = np.arange(start_trial, end_trial + block_len, block_len)
+    print(blocks)
     
     for ax in g.axes.flat:
         for i in range(len(blocks) - 1):
             # skip blocks that end before starting trial
+            if i == 0 or i == len(blocks)-2:
+                continue
             if blocks[i + 1] <= start_trial:
                 continue
-            if i % 2 == 1:  # shade only odd-numbered blocks (i.e., in this case when water current is active)
+            if i % 2 == 1:  # shade only even-numbered blocks (i.e., in this case when water current is active)
                 ax.axvspan(blocks[i] - 0.5, 
                            blocks[i + 1] - 0.5,
                            color='black', alpha=0.15)
@@ -618,7 +623,7 @@ def plot_baseline_washout(
     # add horizontal line at error of 0
     for ax in g.axes.flat:
         ax.axhline(y=0.0, color = 'black', linestyle='--', alpha = 0.3)
-        ax.set_xticks(range(1, int(data['phase_trial_target'].max()) + 1, 4))
+        ax.set_xticks(range(1, int(data[x_col].max()) + 1, 4))
     
 
     if divide_phases == True:
