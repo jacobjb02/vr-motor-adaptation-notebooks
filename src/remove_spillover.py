@@ -7,7 +7,7 @@ import pandas as pd
 
 
 def fix_washout_trials(data,
-                        group_cols = ['ppid_full', 'target_x_label', 'phase', 'block', 'water_speed_binary'],
+                        group_cols = ['ppid_full', 'target_x_label', 'phase', 'block', 'water_speed_binary','set_order'],
                        ):
 
         sorted_data = data.sort_values(['ppid_full','target_x_label','phase','block','trial_num_target'])
@@ -16,7 +16,7 @@ def fix_washout_trials(data,
 
         sorted_data['context_transition'] = sorted_data['water_speed_binary'] != sorted_data['prev_speed']
             
-        # filter data when context_transition == True
+        # remove data when context_transition is True
         out = sorted_data[sorted_data['context_transition'] == False]
     
         return out

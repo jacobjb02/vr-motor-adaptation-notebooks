@@ -519,7 +519,7 @@ def plot_baseline_washout(
     data,
     ppid_col,
     speed_col,
-    x_col='phase_trial_target',
+    x_col='trial_num', 
     y_col='launch_deviation',
     y_lim=(-10,50),
     start_trial=6,
@@ -535,6 +535,8 @@ def plot_baseline_washout(
     
     
 ):
+
+
     # set facets by target
     g = sns.FacetGrid(data, 
                       col='target_x_label', 
@@ -573,7 +575,7 @@ def plot_baseline_washout(
                         alpha=1
                         )
         
-        g.add_legend(title="Target Hit")
+        g.add_legend(title="legend")
 
     elif show_speeds == True:
 
@@ -589,7 +591,7 @@ def plot_baseline_washout(
                         alpha=1
                         )
         
-        g.add_legend(title="Target Hit")
+        g.add_legend(title="legend")
 
 
     else:   
@@ -604,22 +606,26 @@ def plot_baseline_washout(
     end_trial = data[x_col].max()      # 36 total trials per target
     print(end_trial)
     
-    # total number of blocks
-    blocks = np.arange(start_trial, end_trial + block_len, block_len)
-    print(blocks)
-    
+    block_bounds = (data.groupby(['phase','block'])[x_col].agg(['min','max']).reset_index())
+
+    washout_bounds = block_bounds[block_bounds['phase'].str.contains("washout")]
+
+    washout_bounds = washout_bounds.drop_duplicates(subset=['block'])
+        
     for ax in g.axes.flat:
-        for i in range(len(blocks) - 1):
-            # skip blocks that end before starting trial
-            if i == 0 or i == len(blocks)-2:
-                continue
-            if blocks[i + 1] <= start_trial:
-                continue
-            if i % 2 == 1:  # shade only even-numbered blocks (i.e., in this case when water current is active)
-                ax.axvspan(blocks[i] - 0.5, 
-                           blocks[i + 1] - 0.5,
-                           color='black', alpha=0.15)
+        for _, row in washout_bounds.iterrows():
     
+            if row['block'] % 2 == 0:  # odd blocks => current OFF
+                ax.axvspan(
+                    row['min'] - 0.5,
+                    row['max'] + 0.5,
+                    color='black',
+                    alpha=0.12
+                )
+    
+
+
+        
     # add horizontal line at error of 0
     for ax in g.axes.flat:
         ax.axhline(y=0.0, color = 'black', linestyle='--', alpha = 0.3)
