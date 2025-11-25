@@ -17,6 +17,12 @@ def combine_dfs(df_1, df_2,
     
     # make new x_col that makes a new trial counter for combined phases dfs
     if len(df_cf['phase'].unique()) > 1:
-        df_cf['multi_phase_target_trial'] = df_cf.groupby(['ppid_full', 'target_x_label']).cumcount() + 1    
+        
+        df_cf = df_cf.sort_values(by=['ppid_full','target_x_label','trial_num'])
+        df_cf['multi_phase_target_trial'] = df_cf.groupby(['ppid_full', 'target_x_label']).cumcount() + 1   
+        
+
+        df_cf = df_cf.sort_values(by=['ppid_full','target_x_label','multi_phase_target_trial'])
+        df_cf['multi_phase_target_block'] = df_cf.groupby(['ppid_full','target_x_label']).cumcount() // 4
 
     return df_cf
