@@ -108,6 +108,17 @@ max_tbl
 
 
 
+        # make array of unique phases
+        vphase = np.array(np.unique([df_cf['phase']]))
+
+        df_cf.sort_values(by=['ppid_full','target_x_label','phase','phase_trial_target'])
+
+        for p in range(len(vphase)):
+            print(p)
+
+            df_cf[f'{p}_target_trial'] = 
+
+        print(vphase)
 
     
                
