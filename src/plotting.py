@@ -707,6 +707,7 @@ def plot_density_targets(
 def plot_min_x_z(data,
                  c_col,
                  r_col,
+                 hue_col = 'water_speed_binary',
                  context='notebook',
                  font_scale=3,
                  save_path='../figures/baseline_trials_by_target.pdf',
@@ -725,6 +726,7 @@ def plot_min_x_z(data,
     g.map_dataframe(sns.scatterplot,
                     data=data,
                     x='min_pos_from_target_x', y='min_pos_from_target_z',
+                    hue = hue_col,
                     alpha=0.02
                    )
 
