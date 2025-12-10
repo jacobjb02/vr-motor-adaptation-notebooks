@@ -14,7 +14,6 @@ def compute_PCA(data,
 
     results = []
 
-    # filter isnt working
     data_current = data.loc[data[water_col] != 0.0]
 
     data_group = data_current.groupby(group_cols)
@@ -32,7 +31,7 @@ def compute_PCA(data,
 
         pca = PCA(n_components=n_components)
         pcs = pca.fit_transform(X_subset)
-        
+
         for i in range(n_components):
 
             pc_vector = pca.components_[i]
@@ -42,7 +41,38 @@ def compute_PCA(data,
             pc_x = pc_vector[0]
             pc_z = pc_vector[1]
 
+            if pc_z < 0:
+                pc_x, pc_z = -pc_x, -pc_z
+
             pc_deg = np.rad2deg(np.arctan2(pc_z, pc_x))
+            pc_rad = np.arctan2(pc_z, pc_x)
+
+            # build rotation matrix to unrotate  the data
+            rotation = np.array([[np.cos(-pc_rad), -np.sin(-pc_rad)],
+                                 [np.sin(-pc_rad),  np.cos(-pc_rad)]])
+            
+            # only when we are computing the first PC of this group:
+            if i == 0:
+                # move data to origin
+                data_centered = X_subset - pca.mean_
+                # rotate data, making x axis the lateral error, and the z axis the depth error
+                data_rotated = data_centered @ rotation.T
+                # grab first x and z pos values for this group
+                t_x = group_data['target_position_x'].iloc[0]
+                t_z = group_data['target_position_z'].iloc[0]
+
+                # since we rotating the error cloud position, we must align the target with the data again by rotating it too
+                target_v = np.array([t_x, t_z]) - pca.mean_
+                target_rotated = target_v @ rotation.T
+
+                current_group_row['pca_center_x'] = pca.mean_[0]
+                current_group_row['pca_center_z'] = pca.mean_[1]
+
+                lateral_error = data_rotated.iloc[:,0] - target_rotated[0]
+                depth_error = data_rotated.iloc[:,1] - target_rotated[1]
+
+                current_group_row['error_lateral_mean'] = lateral_error.mean()
+                current_group_row['error_depth_mean'] = depth_error.mean()
 
             current_group_row[f'{pc_id}_angle'] = pc_deg
             current_group_row[f'{pc_id}_c_X'] = pc_x
