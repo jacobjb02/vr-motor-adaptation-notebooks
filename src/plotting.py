@@ -707,6 +707,9 @@ def plot_density_targets(
 def plot_min_x_z(data,
                  c_col,
                  r_col,
+                 show_slopes = False,
+                 slope_array = None,
+                 target_x_array = None,
                  hue_col = 'water_speed_binary',
                  context='notebook',
                  font_scale=3,
@@ -714,11 +717,14 @@ def plot_min_x_z(data,
                  dpi=300
                 ):
 
+    slope_array = np.array(slope_array, dtype=np.float64)
+    target_array = np.array(target_x_array, dtype=np.float64)
 
     # set grid and make facets by target
     g = sns.FacetGrid(data, 
                       col=c_col,
                       row=r_col,
+                      hue = hue_col,
                       sharex=True, sharey=True)
 
 
@@ -726,10 +732,41 @@ def plot_min_x_z(data,
     g.map_dataframe(sns.scatterplot,
                     data=data,
                     x='min_pos_from_target_x', y='min_pos_from_target_z',
-                    hue = hue_col,
                     alpha=0.02
                    )
 
+    if show_slopes == True:
+        
+        unique_cols = sorted(data[c_col].unique())
+
+        rows, cols = g.axes.shape 
+        
+        for col_idx in range(cols):
+
+            if col_idx >= len(slope_array):
+                break
+
+            slope_deg = slope_array[col_idx]
+            target_x = target_array[col_idx]
+
+            slope_val = np.tan(np.deg2rad(slope_deg))
+
+            for row_idx in range(rows):
+                ax = g.axes[row_idx, col_idx]
+
+
+                ax.axline(xy1=(target_x, 1.4),
+                          slope=slope_val,
+                          color='black',
+                          linestyle='--',
+                          linewidth=2,
+                          alpha=0.6)
+
+                ax.set_aspect('equal')
+
+
+    # Add legend
+    g.add_legend()
 
     g.fig.set_size_inches(14, 7)   # width, height in inches
     
