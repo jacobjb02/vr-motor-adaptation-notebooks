@@ -737,6 +737,8 @@ def plot_min_x_z(data,
 
     if show_slopes == True:
 
+        assert g.axes.shape == slope_array.shape, "Check the slopes_array shape!"
+
         rows, cols = g.axes.shape
         
         for col_idx in range(cols):
