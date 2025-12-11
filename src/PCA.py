@@ -83,14 +83,15 @@ def compute_PCA(data,
                 depth_error = data_rotated.iloc[:, depth_idx] - target_rotated[depth_idx]
                 lateral_error = data_rotated.iloc[:, lateral_idx] - target_rotated[lateral_idx]
 
-                current_group_row['error_lateral_mean'] = lateral_error.mean()
-                current_group_row['error_depth_mean'] = depth_error.mean()
-
+                current_group_row['error_lateral_mean_m'] = lateral_error.mean()
+                current_group_row['error_depth_mean_m'] = depth_error.mean()
+            # store data
             current_group_row[f'{pc_id}_angle'] = pc_deg
             current_group_row[f'{pc_id}_c_X'] = pc_x
             current_group_row[f'{pc_id}_c_Z'] = pc_z
             current_group_row[f'{pc_id}_variance_ratio'] = pca.explained_variance_ratio_[i]
-
+            
+        # append stored data to results 
         results.append(current_group_row)
 
     return pd.DataFrame(results)
