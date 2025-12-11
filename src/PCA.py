@@ -68,8 +68,20 @@ def compute_PCA(data,
                 current_group_row['pca_center_x'] = pca.mean_[0]
                 current_group_row['pca_center_z'] = pca.mean_[1]
 
-                lateral_error = data_rotated.iloc[:,0] - target_rotated[0]
-                depth_error = data_rotated.iloc[:,1] - target_rotated[1]
+                is_depth_dominant = abs(pc_vector[1]) > abs(pc_vector[0])
+
+                if is_depth_dominant:
+                    # PC1 is Depth (Z), PC2 is Lateral (X)
+                    depth_idx = 0
+                    lateral_idx = 1
+                else:
+                    # PC1 is Lateral (X), PC2 is Depth (Z) 
+                    depth_idx = 1
+                    lateral_idx = 0
+
+                # Use the dynamic indices to grab the correct columns
+                depth_error = data_rotated.iloc[:, depth_idx] - target_rotated[depth_idx]
+                lateral_error = data_rotated.iloc[:, lateral_idx] - target_rotated[lateral_idx]
 
                 current_group_row['error_lateral_mean'] = lateral_error.mean()
                 current_group_row['error_depth_mean'] = depth_error.mean()
