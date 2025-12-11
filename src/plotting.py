@@ -736,32 +736,26 @@ def plot_min_x_z(data,
                    )
 
     if show_slopes == True:
-        
-        unique_cols = sorted(data[c_col].unique())
 
-        rows, cols = g.axes.shape 
+        rows, cols = g.axes.shape
         
         for col_idx in range(cols):
 
-            if col_idx >= len(slope_array):
-                break
-
-            slope_deg = slope_array[col_idx]
-            target_x = target_array[col_idx]
-
-            slope_val = np.tan(np.deg2rad(slope_deg))
-
             for row_idx in range(rows):
+
                 ax = g.axes[row_idx, col_idx]
-
-
+    
+                slope_deg = slope_array[row_idx, col_idx]
+                target_x = target_array[col_idx]
+    
+                slope_val = np.tan(np.deg2rad(slope_deg))
+    
                 ax.axline(xy1=(target_x, 1.4),
                           slope=slope_val,
                           color='black',
                           linestyle='--',
                           linewidth=2,
                           alpha=0.6)
-
                 ax.set_aspect('equal')
 
 
