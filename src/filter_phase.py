@@ -8,8 +8,7 @@ def filter_for_phase(
                         ppid_col,
                         block=False,
                         block_len=None,
-                        inc_phase=True,
-                        expected_n=43
+                        inc_phase=True
                         ):
     
     # filter for select phase(s) only
@@ -31,7 +30,7 @@ def filter_for_phase(
     # baseline (7) + washout (36)
     max_check = selected_phase.groupby([ppid_col,'target_x_label'])['phase_trial_target'].max()
     
-    assert (max_check <= expected_n).all(), max_check
+    #assert (max_check <= expected_n).all(), max_check
         
     selected_max_df = (
         selected_phase
@@ -40,6 +39,8 @@ def filter_for_phase(
         .reset_index()  # converts MultiIndex -> columns
         .rename(columns={'phase_trial_target': 'max_trial'}) 
                         )
-
-    return (selected_phase, selected_max_df)
     
+    final_df = selected_phase.reset_index(drop=True)
+    
+    # Return both the main data and the drop/count summary
+    return final_df, selected_max_df

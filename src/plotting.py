@@ -342,7 +342,7 @@ def plot_exposure_trials_2m(
                     x='phase_trial_target', y=y_col,
                     estimator=None, units='ppid',
                     hue = 'target_x_label', palette='bright',
-                    alpha=0.025)
+                    alpha=0.25)
     
     # mean line and se bands
     g.map_dataframe(sns.lineplot,
