@@ -11,6 +11,10 @@ def compute_PCA_summary(data,
                 water_col,
                 n_components
                ):
+
+    
+    # ensure x-axis is the first feature
+    assert features[0] == 'min_pos_from_target_x', "First idex feature MUST belong to the X-dimension!"
     
     results = []
 
@@ -74,33 +78,35 @@ def compute_PCA_error(trial_df,
                    features,
                    water_col
                      ):
+
     
+    # remove any still-water trials
     data_current = trial_df.loc[trial_df[water_col] != 0.0]
 
+    # convert PC vector components into radians, making PC rad col
     data_current['pc_rad'] = np.arctan2(data_current['pc_vector_1_c_Z'], data_current['pc_vector_1_c_X'])
 
+    # Create cos and sin now for when we unrotate the data later through vectorization
     cos_t = np.cos(-data_current['pc_rad'])
     sin_t = np.sin(-data_current['pc_rad'])
 
+    # ensure x-axis is the first feature
+    assert features[0] == 'min_pos_from_target_x', "First idex feature MUST belong to the X-dimension!"
+    # centre data for x and z based on pca values and the mean value calculated in the above function
     data_current['centered_x'] = data_current[features[0]] - data_current['pc_vector_1_pca_center_x']
     data_current['centered_z'] = data_current[features[1]] - data_current['pc_vector_1_pca_center_z'] 
-
+    # unrotate the data using sin and cos on the centred data
     data_current['unrotated_x'] = (data_current['centered_x'] * cos_t) - (data_current['centered_z'] * sin_t)
     data_current['unrotated_z'] = (data_current['centered_x'] * sin_t) + (data_current['centered_z'] * cos_t)
-
-    # grab first x and z pos values for this group
+    # apply same unrotation to targets
     data_current['tgt_centered_x'] = data_current[target_x_col] - data_current['pc_vector_1_pca_center_x']
     data_current['tgt_centered_z'] = data_current[target_z_col] - data_current['pc_vector_1_pca_center_z'] 
 
     data_current['tgt_unrotated_x'] = (data_current['tgt_centered_x'] * cos_t) - (data_current['tgt_centered_z'] * sin_t)
     data_current['tgt_unrotated_z'] = (data_current['tgt_centered_x'] * sin_t) + (data_current['tgt_centered_z'] * cos_t)
-
-
+    # x and z errors
     data_current['PCA_error_X_cm'] = (data_current['unrotated_x'] - data_current['tgt_unrotated_x']) * 100
     data_current['PCA_error_Z_cm'] = (data_current['unrotated_z'] - data_current['tgt_unrotated_z']) * 100
-
-    data_current['abs_PCA_error_X_cm'] = np.abs(data_current['PCA_error_X_cm'])
-    data_current['abs_PCA_error_Z_cm'] = np.abs(data_current['PCA_error_Z_cm'])
 
     return data_current
        
