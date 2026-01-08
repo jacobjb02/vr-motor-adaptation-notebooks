@@ -66,7 +66,9 @@ def early_late_means(
         
     summary_early_to_late = (early_to_late.groupby(groupby_cols, as_index=False, observed=True)
               .agg(mean_x_delta_cm=(error_col, 'mean'),
-                   var_x_delta_cm=(error_col, 'var'),   
+                   var_x_delta_cm=(error_col, 'var'),
+                   mean_launch_dev=('launch_deviation', 'mean'),
+                   mean_launch_speed=('launch_Speed', 'mean'),
                    n=('trial_num_target', 'size')))
 
     # ordered factor for section
