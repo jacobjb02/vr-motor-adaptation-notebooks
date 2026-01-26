@@ -133,7 +133,7 @@ def plot_early_late_exposure(
     data,
     cond_col,
     ppid_col,
-    x_col='section',
+    x_col='trial_set',
     y_col='mean_x_delta_cm',
     show_zero_line=False,
     context='notebook',

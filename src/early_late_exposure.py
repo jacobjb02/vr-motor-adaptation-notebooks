@@ -44,23 +44,23 @@ def early_late_means(
                 .size())
 
     # take early/late trials per (ppid, target, block)
-    early = ordered.head(window_size).assign(section='early')
+    early = ordered.head(window_size).assign(trial_set='early')
     
-    late_all  = ordered.tail(window_size).assign(section='late')
+    late_all  = ordered.tail(window_size).assign(trial_set='late')
     late = late_all[~late_all.index.isin(early.index)]
 
     early_to_late = pd.concat([early, late], ignore_index=True)
 
     # store trial_num_target lists for each grouping
     trial_lists = (
-        early_to_late.groupby([ppid,'target_x_label','phase','section'])
+        early_to_late.groupby([ppid,'target_x_label','phase','trial_set'])
                    .agg(trial_list=('trial_num_target', list))
                    .reset_index()
     )
 
 
     # collapse to ONE row per subject x cell for ANOVA
-    groupby_cols = [ppid,'section','target_x_label','set_order','phase','speed_label']
+    groupby_cols = [ppid,'trial_set','target_x_label','set_order','phase','speed_label']
     if include_status:
         groupby_cols.append('training_status')  
         
@@ -72,8 +72,8 @@ def early_late_means(
                    n=('trial_num_target', 'size')))
 
     # ordered factor for section
-    summary_early_to_late['section'] = pd.Categorical(
-        summary_early_to_late['section'], ['early','late'], ordered=True)
+    summary_early_to_late['trial_set'] = pd.Categorical(
+        summary_early_to_late['trial_set'], ['early','late'], ordered=True)
     
     return summary_early_to_late
 
