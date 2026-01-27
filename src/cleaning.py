@@ -17,7 +17,7 @@ def extract_key_columns(data):
     
     # selected columns (edit if needed)
     cols = [
-        'ppid_full', 'speed_label', 'trial_num', 'phase', 'trial_num_target', 'launch_deviation', 
+        'experiment', 'ppid_full', 'speed_label', 'trial_num', 'phase', 'trial_num_target', 'launch_deviation', 
         'launch_dev_z', 'launch_Speed', 'launch_Speed_z',
         'ball_dist_to_center_cm', 'min_x_delta', 'min_z_delta', 'target_hit', 'water_speed_binary', 'water_speed_m_s',
         'target_x_label','sign_label','set_order','ball_pos_x', 'ball_pos_z', 'min_pos_from_target_x', 'min_pos_from_target_z',
@@ -29,6 +29,7 @@ def extract_key_columns(data):
 
     # modify column dtypes
     data_subset = data_subset.astype({
+                                        'experiment': 'category',
                                         'water_speed_binary': 'int8',
                                         'target_x_label': 'category',
                                         'ppid_full': 'category',
