@@ -20,31 +20,11 @@ def point_of_crossing_x(row):
     return (x_at_closest - row['target_position_x']) * 100 # convert to cm
 
 
-# check number of ppid per set order
-def N_by_set_order(data,
-                  group_cols
-                  ):
-
-    # check reqiured cols
-    assert group_cols in data.columns and 'set_order' in data.columns, \
-            "Data must contain ppid_col and 'set_order'"
-
-    ppid_list = data[group_cols]
-
-    print(f'Number of Participants in data: {len(ppid_list.unique())}')
-
-    # check number of ppid per set order:
-    counts = np.array(data.groupby('set_order')[group_cols].nunique().reset_index())
+def get_sample_sizes(data, group_cols, ppid_col):
+    # No manual subsetting required; just pass the column names directly
+    return data.drop_duplicates(subset=[ppid_col] + (group_cols if isinstance(group_cols, list) else [group_cols])) \
+               .groupby(group_cols).size()
     
-    # set order 1 n
-    n_1 = counts[0,1]
-    print(f'{n_1} ppid in set order 1')
-    
-    # set order 2 n
-    n_2 = counts[1,1]
-    print(f'{n_2} ppid in set order 2')
-
-
 # grab baseline data and summarize
 def summarize_phase(data, phase, y_col, ppid_col, lat_error_col):
 
