@@ -81,8 +81,8 @@ def compute_PCA_error(trial_df,
 
     
     # remove any still-water trials
-    data_current = trial_df.loc[trial_df[water_col] != 0.0]
-
+    data_current = trial_df.loc[trial_df[water_col] != 0.0].copy()
+    
     # convert PC vector components into radians, making PC rad col
     data_current['pc_rad'] = np.arctan2(data_current['pc_vector_1_c_Z'], data_current['pc_vector_1_c_X'])
 

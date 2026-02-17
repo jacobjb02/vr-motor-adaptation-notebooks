@@ -21,7 +21,6 @@ def point_of_crossing_x(row):
 
 
 def get_sample_sizes(data, group_cols, ppid_col):
-    # No manual subsetting required; just pass the column names directly
     return data.drop_duplicates(subset=[ppid_col] + (group_cols if isinstance(group_cols, list) else [group_cols])) \
                .groupby(group_cols).size()
     

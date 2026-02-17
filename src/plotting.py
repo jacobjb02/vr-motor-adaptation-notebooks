@@ -14,15 +14,12 @@ import pandas as pd
 # trial schedule plot
 def plot_trial_schedule(
     data, 
+    y_col,
     context='notebook',
     font_scale=2,
     save_path='../figures/trial_schedule.pdf',
     dpi=300
 ):
-
-    # check reqiured cols
-    assert 'trial_num' in data.columns and 'water_speed_binary' in data.columns, \
-            "Data must contain 'trial_num' and 'water_speed_binary'"
 
     # edit font size:
     sns.set_context(context, font_scale=5)  
@@ -34,7 +31,7 @@ def plot_trial_schedule(
     g = sns.relplot(
         data=data, 
         kind='line', linewidth = 3,
-        x='trial_num', y='water_speed_binary',
+        x='trial_num', y=y_col,
         height=5, 
         aspect=3
     )
@@ -720,6 +717,10 @@ def plot_min_x_z(data,
 
     slope_array = np.array(slope_array, dtype=np.float64)
     target_array = np.array(target_x_array, dtype=np.float64)
+
+    if data[c_col].dtype.name == 'category':
+        data = data.copy()
+        data[c_col] = data[c_col].cat.remove_unused_categories()
 
     # set grid and make facets by target
     g = sns.FacetGrid(data, 
