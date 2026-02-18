@@ -14,7 +14,7 @@ def compute_PCA_summary(data,
 
     
     # ensure x-axis is the first feature
-    assert features[0] == 'min_pos_from_target_x', "First idex feature MUST belong to the X-dimension!"
+    assert features[0] == 'min_pos_from_target_x_cm', "First idex feature MUST belong to the X-dimension!"
     
     results = []
 
@@ -91,8 +91,6 @@ def compute_PCA_error(trial_df,
     sin_t = np.sin(-data_current['pc_rad'])
 
     # ensure x-axis is the first feature
-    assert features[0] == 'min_pos_from_target_x', "First idex feature MUST belong to the X-dimension!"
-    # centre data for x and z based on pca values and the mean value calculated in the above function
     data_current['centered_x'] = data_current[features[0]] - data_current['pc_vector_1_pca_center_x']
     data_current['centered_z'] = data_current[features[1]] - data_current['pc_vector_1_pca_center_z'] 
     # unrotate the data using sin and cos on the centred data
@@ -105,8 +103,8 @@ def compute_PCA_error(trial_df,
     data_current['tgt_unrotated_x'] = (data_current['tgt_centered_x'] * cos_t) - (data_current['tgt_centered_z'] * sin_t)
     data_current['tgt_unrotated_z'] = (data_current['tgt_centered_x'] * sin_t) + (data_current['tgt_centered_z'] * cos_t)
     # x and z errors
-    data_current['PCA_error_X_cm'] = (data_current['unrotated_x'] - data_current['tgt_unrotated_x']) * 100
-    data_current['PCA_error_Z_cm'] = (data_current['unrotated_z'] - data_current['tgt_unrotated_z']) * 100
+    data_current['PCA_error_X_cm'] = (data_current['unrotated_x'] - data_current['tgt_unrotated_x']) 
+    data_current['PCA_error_Z_cm'] = (data_current['unrotated_z'] - data_current['tgt_unrotated_z']) 
 
     return data_current
        
