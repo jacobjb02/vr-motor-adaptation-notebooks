@@ -24,8 +24,8 @@ def get_sample_sizes(data, group_cols, ppid_col):
     return data.drop_duplicates(subset=[ppid_col] + (group_cols if isinstance(group_cols, list) else [group_cols])) \
                .groupby(group_cols).size()
     
-# grab baseline data and summarize
-def summarize_phase(data, phase, y_col, ppid_col, lat_error_col):
+# grab phase data and summarize
+def summarize_phase(data, phase, ppid_col, error_col, group_col):
 
     # filter so we only have baseline data, make a copy
     phase_df = data.copy()
@@ -42,10 +42,8 @@ def summarize_phase(data, phase, y_col, ppid_col, lat_error_col):
 
     # summarize baseline data by ppid x target and obtain baseline errors
     phase_df_summary = (
-        phase_df.groupby([ppid_col,'target_x_label'], as_index=False, observed=True).agg(
-            mean_ball_dist_cm=(y_col,'mean'),
-            min_ball_dist_cm=(y_col,'min'),
-            mean_ball_dist_x_cm=(lat_error_col,'mean'),
+        phase_df.groupby([ppid_col,group_col], as_index=False, observed=True).agg(
+            mean_error_cm=(error_col,'mean'),
             mean_ball_launch_dev=('launch_deviation','mean'),
             mean_ball_launch_speed=('launch_Speed','mean')
         )

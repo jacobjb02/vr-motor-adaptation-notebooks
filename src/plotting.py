@@ -220,6 +220,7 @@ def plot_exposure_trials(
     cond_col,
     ppid_col,
     row_col,
+    target_col,
     show_zero_line=False,
     y_col='baseline_corrected_dist',
     y_lim=(None,110.0),
@@ -235,12 +236,11 @@ def plot_exposure_trials(
     data[x_col] = data[x_col].astype(float)
 
     # sort levels to preserve interpretable order
-    labels = sorted(data[cond_col].unique(), key=str)
+    labels = sorted(data[target_col].unique(), key=str)
 
-    data[cond_col] = pd.Categorical(data[cond_col],
+    data[target_col] = pd.Categorical(data[target_col],
                                     categories=labels,
                                     ordered=True)
-    data["set_order"] = data["set_order"].astype("category")
 
     palette_map = dict(zip(labels, sns.color_palette("bright", len(labels))))
 
@@ -251,7 +251,7 @@ def plot_exposure_trials(
     g = sns.FacetGrid(
         data,
         row=row_col,
-        col='target_x_label',
+        #col=target_col,
         sharex=True,
         sharey=True,
     )
@@ -262,7 +262,7 @@ def plot_exposure_trials(
         sns.lineplot,
         x=x_col, y=y_col,
         units=ppid_col, estimator=None,
-        hue=cond_col, style=cond_col,
+        hue=target_col, style=target_col,
         palette=palette_map,
         alpha=0.03
     )
@@ -274,7 +274,7 @@ def plot_exposure_trials(
         estimator=estimator,
         linewidth=1.5,
         errorbar='se', err_kws={"alpha":0.25,"linewidth":0},
-        hue=cond_col, style=cond_col,
+        hue=target_col, style=cond_col,
         markers=True,
         markersize=marker_size,
         palette=palette_map,
@@ -283,17 +283,12 @@ def plot_exposure_trials(
 
     g.fig.set_size_inches(14, 10.5)
 
-    legend_title = cond_col.replace("_"," ").title()
+    handles, legend_labels = g.axes.flat[0].get_legend_handles_labels()
 
-    handles = [
-        plt.Line2D([0],[0], color=palette_map[label], lw=3)
-        for label in labels
-    ]
-
-    g.fig.legend(handles, labels,
-                 title=legend_title,
-                 loc="upper right", bbox_to_anchor=(1.12,0.85))
-
+    g.fig.legend(handles, legend_labels,
+             title=cond_col.replace("_"," ").title(),
+             loc="upper right", 
+             bbox_to_anchor=(1.12, 0.85))
 
     if show_zero_line == True:
         for ax in g.axes.flat:
@@ -306,6 +301,12 @@ def plot_exposure_trials(
 
     plt.show()
     return g
+
+
+
+
+
+    
 
 def plot_exposure_trials_2m(
     data,

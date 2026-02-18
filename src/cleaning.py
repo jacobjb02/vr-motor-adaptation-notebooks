@@ -17,11 +17,7 @@ def extract_key_columns(data):
     
     # selected columns (edit if needed)
     cols = [
-        'experiment', 'ppid_full', 'speed_label', 'trial_num', 'phase', 'trial_num_target', 'launch_deviation', 
-        'launch_dev_z', 'launch_Speed', 'launch_Speed_z',
-        'ball_dist_to_center_cm', 'min_x_delta', 'min_z_delta', 'target_hit', 'water_speed_binary', 'water_speed_m_s',
-        'target_x_label','sign_label','set_order','ball_pos_x', 'ball_pos_z', 'min_pos_from_target_x', 'min_pos_from_target_z',
-        'target_position_x', 'target_position_z','target_angle_90'
+        'experiment', 'ppid_full', 'speed_label', 'target_x_label', 'target_position_x_cm', 'target_position_z_cm', 'trial_num', 'phase', 'trial_num_target', 'launch_deviation', 'launch_Speed', 'ball_dist_to_center_cm', 'lateral_error_x_cm', 'depth_error_z_cm', 'target_hit', 'water_speed_binary', 'water_speed_m_s', 'sign_label','set_order', 'min_pos_from_target_x_cm', 'min_pos_from_target_z_cm','target_angle_90'
             ]
 
     # make copied subset of original df 
@@ -31,7 +27,6 @@ def extract_key_columns(data):
     data_subset = data_subset.astype({
                                         'experiment': 'category',
                                         'water_speed_binary': 'int8',
-                                        'target_x_label': 'category',
                                         'ppid_full': 'category',
                                         'phase': 'category',
                                         'speed_label': 'category'
