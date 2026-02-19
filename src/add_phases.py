@@ -52,6 +52,9 @@ def df_add_phases(
         mask = (df['trial_num'] >= lo) & (df['trial_num'] <= hi)
         df.loc[mask, 'phase'] = name
 
+
+    df['phase_target_trial_num'] = df.groupby(['ppid_full', 'phase', 'target_x_label']).cumcount() + 1
+
     return df
 
 
@@ -94,7 +97,10 @@ def df_add_phases_old(df,
 
         
 
-    
+
+
+
+
 
     
 
