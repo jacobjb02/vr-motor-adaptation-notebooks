@@ -8,7 +8,7 @@ def early_late_means(
     df, 
     error_col,
     ppid,
-    phases = ['training_1', 'training_2'],
+    phases = None,
     window_size=8,
     include_status=False 
 ):
@@ -28,19 +28,19 @@ def early_late_means(
     
     ppid_block_target = (
         df_phase
-        .groupby([ppid,'phase','speed_label','target_x_label'])
+        .groupby([ppid,'phase','speed_label','target_position_x_cm'])
         .size()
         .reset_index(name='n_trials')
-        .sort_values([ppid,'phase','target_x_label'])
+        .sort_values([ppid,'phase','target_position_x_cm'])
     )
     
 
     # order within each (ppid, target, block) by trial order
     ordered = (df_phase
-               .sort_values([ppid,'target_x_label','phase','trial_num_target'])
-               .groupby([ppid,'target_x_label','phase','speed_label'], group_keys=False))
+               .sort_values([ppid,'target_position_x_cm','phase','trial_num_target'])
+               .groupby([ppid,'target_position_x_cm','phase','speed_label'], group_keys=False))
 
-    counts = (df_phase.groupby([ppid,'target_x_label','phase','speed_label'], observed=True)
+    counts = (df_phase.groupby([ppid,'target_position_x_cm','phase','speed_label'], observed=True)
                 .size())
 
     # take early/late trials per (ppid, target, block)
@@ -53,14 +53,14 @@ def early_late_means(
 
     # store trial_num_target lists for each grouping
     trial_lists = (
-        early_to_late.groupby([ppid,'target_x_label','phase','trial_set'])
+        early_to_late.groupby([ppid,'target_position_x_cm','phase','trial_set'])
                    .agg(trial_list=('trial_num_target', list))
                    .reset_index()
     )
 
 
     # collapse to ONE row per subject x cell for ANOVA
-    groupby_cols = [ppid,'trial_set','target_x_label','set_order','phase','speed_label']
+    groupby_cols = [ppid,'trial_set','target_position_x_cm','set_order','phase','speed_label']
     if include_status:
         groupby_cols.append('training_status')  
         
@@ -69,6 +69,7 @@ def early_late_means(
                    var_error=(error_col, 'var'),
                    mean_launch_dev=('launch_deviation', 'mean'),
                    mean_launch_speed=('launch_Speed', 'mean'),
+                   mean_speed_dev_interaction=('speed_dev_interaction','mean'),
                    n=('trial_num_target', 'size')))
 
     # ordered factor for section

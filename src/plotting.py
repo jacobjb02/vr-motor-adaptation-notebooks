@@ -7,8 +7,9 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
-
-
+from matplotlib.colors import Normalize
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import TwoSlopeNorm, Normalize
 
 
 # trial schedule plot
@@ -126,12 +127,16 @@ def plot_baseline(
 
 
 # early late exposure
+
 def plot_early_late_exposure(
     data,
     cond_col,
     ppid_col,
-    x_col='trial_set',
-    y_col='mean_x_delta_cm',
+    y_col,
+    x_col,
+    line_col,
+    facet_row,
+    facet_col,
     show_zero_line=False,
     context='notebook',
     font_scale=3,
@@ -146,17 +151,20 @@ def plot_early_late_exposure(
     palette = sns.color_palette('bright')
     
     data = data.copy()
-    data[cond_col] = pd.Categorical(
-        data[cond_col],
-        categories=[-2, -3],  
-        ordered=True
-    )
+    data[cond_col] = pd.Categorical(data[cond_col], ordered=True)
+    
+    # Create a unique identifier for each individual line to prevent zig-zag artifacts
+    data['unit_id'] = data[ppid_col].astype(str) + '_' + data[line_col].astype(str)
 
+    # Extract x-axis order dynamically to prevent silent filtering of mismatched strings
+    dynamic_x_order = list(data[x_col].dropna().unique())
+
+    data[x_col] = pd.Categorical(data[x_col], categories=dynamic_x_order, ordered=True)
 
     g = sns.FacetGrid(
         data,
-        col='target_x_label',
-        row='set_order',
+        col=facet_col,
+        row=facet_row,
         sharey=True,
         sharex=True,
         margin_titles=True
@@ -167,7 +175,7 @@ def plot_early_late_exposure(
         sns.stripplot,
         x=x_col, y=y_col,
         hue=cond_col,
-        order=['early', 'late'],
+        order=dynamic_x_order, # Updated from hardcoded ['early', 'late']
         jitter=0.05, alpha=0.50, size=5,
         palette=palette,
         legend=False
@@ -176,19 +184,27 @@ def plot_early_late_exposure(
     # individual participant lines
     g.map_dataframe(
         sns.lineplot,
-        x='section', y=y_col,
-        units=ppid_col, estimator=None,
+        x=x_col, y=y_col,
+        estimator=None,
         color='0.4', alpha=0.20, linewidth=1,
         legend=False
     )
 
+    # Dynamically generate markers and linestyles based on number of hue conditions
+    n_hues = data[cond_col].nunique()
+    dynamic_markers = ["o", "s", "D", "v", "^", "<", ">"][:n_hues]
+    dynamic_linestyles = ["-", "--", "-.", ":", "-", "--", "-."][:n_hues]
+
     # mean line and SE
     g.map_dataframe(
         sns.pointplot,
-        x=x_col, y=y_col,
-        order=['early','late'], 
-        hue=cond_col,
+        x=x_col, 
+        y=y_col,
+        hue=cond_col,            
+        order=dynamic_x_order, # Updated from hardcoded ['early', 'late']
         palette=palette,
+        linestyles=dynamic_linestyles, 
+        markers=dynamic_markers,      
         alpha=0.7,
         estimator=np.mean,
         errorbar='se',
@@ -199,10 +215,10 @@ def plot_early_late_exposure(
     if show_zero_line:
         for ax in g.axes.flat:
             ax.axhline(0.0, color='black', linestyle='--', alpha=0.3)
-            ax.set_xticks([0, 1])
+            # Update xticks to match the number of categories found in the data
+            #ax.set_xticks(range(len(dynamic_x_order)))
     
     g.add_legend(title=cond_col)
-
     g.fig.set_size_inches(14, 10.5)
 
     if save_path:
@@ -211,9 +227,7 @@ def plot_early_late_exposure(
     plt.show()
     return g
 
-
-
-
+    
 # all exposure
 import matplotlib.ticker as ticker
 
@@ -788,13 +802,85 @@ def plot_min_x_z(data,
 
 
 
-# update with targets and water speed
-
-
+def plot_heatmap(data, x_col, y_col, colour_col, facet_col=None, facet_row=None, 
+                 style_col=None, mode='correlation', dark=True, font_scale=1.2, 
+                 show_legend=True, show_mean_line=False, mean_line_color=None): 
     
+    # SAFETY: Ensure we are working with columns, not indices
+    data = data.copy().reset_index()
     
+    # Ensure numerical consistency for the heat map
+    data[colour_col] = pd.to_numeric(data[colour_col], errors='coerce')
+    
+    palette = 'icefire' if dark else 'RdBu_r' 
+    bg_color, text_color = ("black", "white") if dark else ("white", "black")
+    
+    if mean_line_color is None:
+        mean_line_color = "white" if dark else "black"
 
+    v_min, v_max = data[colour_col].min(), data[colour_col].max()
+    norm = TwoSlopeNorm(vcenter=0.0, vmin=v_min, vmax=v_max) if v_min < 0 and v_max > 0 else plt.Normalize(vmin=v_min, vmax=v_max)
 
+    sns.set_context("notebook", font_scale=font_scale)
 
-
-
+    with sns.axes_style("darkgrid" if dark else "whitegrid", rc={
+        "axes.facecolor": bg_color, "figure.facecolor": bg_color,
+        "grid.color": "#333333" if dark else "#DDDDDD", "text.color": text_color,
+        "axes.labelcolor": text_color, "xtick.color": text_color, "ytick.color": text_color
+    }):
+        # Primary Scatter Plot
+        g = sns.relplot(
+            data=data, x=x_col, y=y_col, hue=colour_col, 
+            style=style_col, col=facet_col, row=facet_row,
+            palette=palette, hue_norm=norm, alpha=0.4, kind='scatter', 
+            height=5, aspect=1.0, facet_kws={'margin_titles': True}
+        )
+        g.fig.set_facecolor(bg_color)
+        
+        # Mean Overlay Logic
+        if show_mean_line:
+            # Check if mean_line_color refers to a data column
+            if mean_line_color in data.columns:
+                g.map_dataframe(
+                    sns.lineplot, x=x_col, y=y_col, 
+                    style=style_col, 
+                    hue=mean_line_color, 
+                    palette='viridis', 
+                    linewidth=3, errorbar=None, zorder=10
+                )
+            else:
+                # Treat as a literal Matplotlib color string
+                g.map_dataframe(
+                    sns.lineplot, x=x_col, y=y_col, 
+                    style=style_col, color=mean_line_color, 
+                    linewidth=3, errorbar=None, zorder=10
+                )
+        
+        # Colorbar and Legend Handling
+        sm = ScalarMappable(cmap=palette, norm=norm)
+        sm.set_array([])
+        cbar_ax = g.fig.add_axes([0.92, 0.2, 0.02, 0.6]) 
+        cbar = g.fig.colorbar(sm, cax=cbar_ax)
+        cbar.set_label(colour_col, color=text_color)
+        
+        if g._legend: g._legend.remove()
+        if show_legend:
+            handles, labels = g.axes.flat[0].get_legend_handles_labels()
+            # Filter out the colorbar's numeric labels to keep factor labels only
+            unique_labels = {}
+            for h, l in zip(handles, labels):
+                if l not in unique_labels and not l.replace('.','',1).replace('-','',1).isdigit():
+                    unique_labels[l] = h
+            
+            if unique_labels:
+                g.fig.legend(unique_labels.values(), unique_labels.keys(), 
+                             loc='center right', bbox_to_anchor=(0.91, 0.5), 
+                             fontsize='small', title="Factors")
+        
+        for ax in g.axes.flat:
+            ax.set_facecolor(bg_color)
+            if dark: ax.tick_params(colors=text_color)
+        
+        plt.subplots_adjust(right=0.85, top=0.9) 
+        plt.show()
+        return g
