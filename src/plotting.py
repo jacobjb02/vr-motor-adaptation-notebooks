@@ -215,6 +215,8 @@ def plot_early_late_exposure(
 
 
 # all exposure
+import matplotlib.ticker as ticker
+
 def plot_exposure_trials(
     data,
     cond_col,
@@ -224,7 +226,7 @@ def plot_exposure_trials(
     target_col,
     show_zero_line=False,
     y_col='baseline_corrected_dist',
-    y_lim=(None,110.0),
+    y_lim=(None, 110.0),
     x_col='trial_num_target',
     estimator='mean',
     context='notebook',
@@ -236,18 +238,12 @@ def plot_exposure_trials(
     data = data.copy()
     data[x_col] = data[x_col].astype(float)
 
-    # sort levels to preserve interpretable order
     labels = sorted(data[target_col].unique(), key=str)
-
-    data[target_col] = pd.Categorical(data[target_col],
-                                    categories=labels,
-                                    ordered=True)
-
+    data[target_col] = pd.Categorical(data[target_col], categories=labels, ordered=True)
     palette_map = dict(zip(labels, sns.color_palette("bright", len(labels))))
 
-    sns.set_context(context, font_scale)
-    sns.set_theme()
-    sns.set_style("white")
+    sns.set_context(context, font_scale=font_scale)
+    sns.set_theme(style="white")
 
     g = sns.FacetGrid(
         data,
@@ -255,20 +251,21 @@ def plot_exposure_trials(
         col=col_col,
         sharex=True,
         sharey=True,
+        margin_titles=True
     )
     g.set(ylim=y_lim)
 
-    # individual participant traces
+    # 1. Plot individual participant traces
     g.map_dataframe(
         sns.lineplot,
         x=x_col, y=y_col,
         units=ppid_col, estimator=None,
-        hue=target_col, style=target_col,
+        hue=target_col,
         palette=palette_map,
-        alpha=0.03
+        alpha=0.03, legend=False
     )
 
-    # mean + SE
+    # 2. Plot Mean + SE
     g.map_dataframe(
         sns.lineplot,
         x=x_col, y=y_col,
@@ -282,27 +279,37 @@ def plot_exposure_trials(
         alpha=1, dashes=True
     )
 
-    g.fig.set_size_inches(14, 10.5)
+    g.fig.set_size_inches(18, 11) # Widened further for high font scale labels
 
+    # --- AGGRESSIVE TICKER FIX ---
+    for ax in g.axes.flat:
+        if show_zero_line:
+            ax.axhline(y=0.0, color='black', linestyle='--', alpha=0.3)
+        
+        # Limit the number of ticks to 4-5 to prevent overlap at large font sizes
+        ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5, integer=True))
+        
+        # Remove scientific notation if it appears
+        ax.xaxis.get_major_formatter().set_scientific(False)
+
+    # --- LEGEND & SPACING FIX ---
     handles, legend_labels = g.axes.flat[0].get_legend_handles_labels()
-
-    g.fig.legend(handles, legend_labels,
-             title=cond_col.replace("_"," ").title(),
-             loc="upper right", 
-             bbox_to_anchor=(1.12, 0.85))
-
-    if show_zero_line == True:
-        for ax in g.axes.flat:
-            ax.axhline(y=0.0, color = 'black', linestyle='--', alpha = 0.3)
-            ax.set_xticks(range(1, int(data[x_col].max()) + 1, 4))
     
+    # Legend centered on the right gutter
+    g.fig.legend(handles, legend_labels,
+                 title=cond_col.replace("_"," ").title(),
+                 loc="center left", 
+                 bbox_to_anchor=(0.88, 0.5), 
+                 frameon=True)
+
+    # Increased right/bottom margins to accommodate rotated text and external legend
+    g.fig.subplots_adjust(right=0.82, bottom=0.2, wspace=0.1) 
 
     if save_path:
-        g.fig.savefig(save_path, dpi=dpi)
+        g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
 
     plt.show()
     return g
-
 
 
 
