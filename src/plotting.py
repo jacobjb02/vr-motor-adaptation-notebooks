@@ -220,6 +220,7 @@ def plot_exposure_trials(
     cond_col,
     ppid_col,
     row_col,
+    col_col,
     target_col,
     show_zero_line=False,
     y_col='baseline_corrected_dist',
@@ -251,7 +252,7 @@ def plot_exposure_trials(
     g = sns.FacetGrid(
         data,
         row=row_col,
-        #col=target_col,
+        col=col_col,
         sharex=True,
         sharey=True,
     )
