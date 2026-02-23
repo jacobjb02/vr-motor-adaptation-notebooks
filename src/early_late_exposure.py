@@ -3,8 +3,29 @@ import numpy as np
 import pandas as pd
 
 
+def early_late_phase(df, group_cols, phase_col, trial_col, n_trials):
+    """
+    Identifies early and late trials within each experimental phase
+    """
+    df = df.copy()
 
-def early_late_means(
+    is_early = df[trial_col] <= n_trials
+
+    group_max = df.groupby(group_cols + [phase_col])[trial_col].transform('max')
+    is_late = df[trial_col] > (group_max - n_trials)
+
+    conditions = [is_early, is_late]
+    choices = ['early', 'late']
+    
+    df['trial_set'] = np.select(conditions, choices, default='mid')
+
+    result_df = df[df['trial_set'] != 'mid'].copy()
+
+    return result_df
+
+
+
+def early_late_means_old_1(
     df, 
     error_col,
     ppid,

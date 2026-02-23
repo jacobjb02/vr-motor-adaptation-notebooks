@@ -127,6 +127,10 @@ def plot_baseline(
 
 
 # early late exposure
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 def plot_early_late_exposure(
     data,
@@ -137,96 +141,90 @@ def plot_early_late_exposure(
     line_col,
     facet_row,
     facet_col,
+    ylim=None,              # NEW: Argument for y-axis limits (e.g., [-30, 30])
     show_zero_line=False,
     context='notebook',
-    font_scale=3,
+    font_scale=1.2,          
+    facet_height=4,          
+    facet_aspect=1.2,        
     save_path='../figures/early_late_exposure_by_target_x_set.pdf',
     dpi=300
 ):
-
-    sns.set_context(context, font_scale)
-    sns.set_theme()
-    sns.set_style("white")
-
+    sns.set_theme(context=context, font_scale=font_scale, style="white")
     palette = sns.color_palette('bright')
     
     data = data.copy()
-    data[cond_col] = pd.Categorical(data[cond_col], ordered=True)
-    
-    # Create a unique identifier for each individual line to prevent zig-zag artifacts
     data['unit_id'] = data[ppid_col].astype(str) + '_' + data[line_col].astype(str)
-
-    # Extract x-axis order dynamically to prevent silent filtering of mismatched strings
     dynamic_x_order = list(data[x_col].dropna().unique())
-
     data[x_col] = pd.Categorical(data[x_col], categories=dynamic_x_order, ordered=True)
 
     g = sns.FacetGrid(
         data,
         col=facet_col,
         row=facet_row,
+        height=facet_height, 
+        aspect=facet_aspect,
         sharey=True,
         sharex=True,
         margin_titles=True
     )
 
-    # individual data points
+    # Individual data points
     g.map_dataframe(
         sns.stripplot,
         x=x_col, y=y_col,
         hue=cond_col,
-        order=dynamic_x_order, # Updated from hardcoded ['early', 'late']
-        jitter=0.05, alpha=0.50, size=5,
+        order=dynamic_x_order,
+        jitter=0.05, alpha=0.40, size=4,
         palette=palette,
         legend=False
     )
 
-    # individual participant lines
+    # Individual participant lines
     g.map_dataframe(
         sns.lineplot,
         x=x_col, y=y_col,
+        units='unit_id',
         estimator=None,
-        color='0.4', alpha=0.20, linewidth=1,
+        color='0.5', alpha=0.15, linewidth=0.8,
         legend=False
     )
 
-    # Dynamically generate markers and linestyles based on number of hue conditions
     n_hues = data[cond_col].nunique()
-    dynamic_markers = ["o", "s", "D", "v", "^", "<", ">"][:n_hues]
-    dynamic_linestyles = ["-", "--", "-.", ":", "-", "--", "-."][:n_hues]
+    dynamic_markers = ["o", "s", "D", "v"][:n_hues]
+    dynamic_linestyles = ["-", "--", "-.", ":"][:n_hues]
 
-    # mean line and SE
+    # Mean line and SE
     g.map_dataframe(
         sns.pointplot,
-        x=x_col, 
-        y=y_col,
+        x=x_col, y=y_col,
         hue=cond_col,            
-        order=dynamic_x_order, # Updated from hardcoded ['early', 'late']
+        order=dynamic_x_order, 
         palette=palette,
         linestyles=dynamic_linestyles, 
         markers=dynamic_markers,      
-        alpha=0.7,
+        scale=0.8,
         estimator=np.mean,
         errorbar='se',
-        capsize=.15,
-        legend=True
+        capsize=.1,
+        legend=False
     )
+
+    # Apply Y-limits and Zero Line
+    if ylim is not None:
+        g.set(ylim=ylim)
 
     if show_zero_line:
         for ax in g.axes.flat:
             ax.axhline(0.0, color='black', linestyle='--', alpha=0.3)
-            # Update xticks to match the number of categories found in the data
-            #ax.set_xticks(range(len(dynamic_x_order)))
     
     g.add_legend(title=cond_col)
-    g.fig.set_size_inches(14, 10.5)
 
     if save_path:
         g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
 
     plt.show()
     return g
-
     
 # all exposure
 import matplotlib.ticker as ticker
