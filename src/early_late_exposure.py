@@ -3,17 +3,17 @@ import numpy as np
 import pandas as pd
 
 
-def early_late_phase(df, group_cols, phase_col, trial_col, n_trials):
+def early_late_phase(df, group_cols, phase_col, phases_to_keep, trial_col, n_trials):
     """
     Identifies early and late trials within each experimental phase
     """
-    df = df.copy()
-
+    df = df[df[phase_col].isin(phases_to_keep)].copy()
+    
     is_early = df[trial_col] <= n_trials
 
     group_max = df.groupby(group_cols + [phase_col])[trial_col].transform('max')
-    is_late = df[trial_col] > (group_max - n_trials)
-
+    is_late = (df[trial_col] > (group_max - n_trials)) & (~is_early)
+    
     conditions = [is_early, is_late]
     choices = ['early', 'late']
     

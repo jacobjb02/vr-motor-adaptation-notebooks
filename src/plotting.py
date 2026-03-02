@@ -134,7 +134,7 @@ import matplotlib.pyplot as plt
 
 def plot_early_late_exposure(
     data,
-    cond_col,
+    cond_col, # colour
     ppid_col,
     y_col,
     x_col,
