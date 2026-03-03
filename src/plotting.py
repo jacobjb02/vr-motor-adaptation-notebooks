@@ -206,8 +206,7 @@ def plot_early_late_exposure(
         scale=0.8,
         estimator=np.mean,
         errorbar='se',
-        capsize=.1,
-        legend=False
+        capsize=.1
     )
 
     # Apply Y-limits and Zero Line
@@ -323,6 +322,99 @@ def plot_exposure_trials(
     plt.show()
     return g
 
+
+def plot_continuous_exposure(
+    data,
+    cond_col,
+    ppid_col,
+    row_col,
+    x_col,
+    target_col,
+    phase_col='phase',          # NEW: Used for vertical demarcations instead of columns
+    show_zero_line=False,
+    y_col='baseline_corrected_dist',
+    y_lim=(None, 110.0),
+    estimator='mean',
+    context='notebook',
+    marker_size=4,
+    font_scale=3,
+    save_path=None,
+    dpi=300
+):
+    data = data.copy()
+    data[x_col] = data[x_col].astype(float)
+
+    labels = sorted(data[target_col].unique(), key=str)
+    data[target_col] = pd.Categorical(data[target_col], categories=labels, ordered=True)
+    palette_map = dict(zip(labels, sns.color_palette("bright", len(labels))))
+
+    sns.set_context(context, font_scale=font_scale)
+    sns.set_theme(style="white")
+
+    # Removed col_col entirely to allow maximum width per row
+    g = sns.FacetGrid(
+        data,
+        row=row_col,
+        sharex=True,
+        sharey=True,
+        margin_titles=True,
+        aspect=2.5,  # Force a wide aspect ratio for the single column
+        height=5     # Adjust height per row
+    )
+    g.set(ylim=y_lim)
+
+    # 1. Individual participant traces
+    g.map_dataframe(
+        sns.lineplot,
+        x=x_col, y=y_col,
+        units=ppid_col, estimator=None,
+        hue=target_col, palette=palette_map,
+        alpha=0.03, legend=False
+    )
+
+    # 2. Mean + SE
+    g.map_dataframe(
+        sns.lineplot,
+        x=x_col, y=y_col,
+        estimator=estimator, linewidth=1.5,
+        errorbar='se', err_kws={"alpha":0.25, "linewidth":0},
+        hue=target_col, style=cond_col,
+        markers=True, markersize=marker_size,
+        palette=palette_map, alpha=1, dashes=True
+    )
+
+    # --- PHASE DEMARCATION (The Alternative to Faceting) ---
+    # Calculate the trial transitions to draw vertical lines
+    phase_transitions = data.groupby(phase_col)[x_col].min().sort_values()
+    
+    for ax in g.axes.flat:
+        if show_zero_line:
+            ax.axhline(y=0.0, color='black', linestyle='--', alpha=0.3)
+            
+        # Draw vertical lines for phase changes
+        for transition_trial in phase_transitions:
+            if transition_trial > data[x_col].min(): # Skip line at the very beginning
+                ax.axvline(x=transition_trial - 0.5, color='gray', linestyle=':', alpha=0.8)
+
+        ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=8, integer=True))
+        ax.xaxis.get_major_formatter().set_scientific(False)
+
+    # --- LEGEND & SPACING FIX ---
+    handles, legend_labels = g.axes.flat[0].get_legend_handles_labels()
+    
+    g.fig.legend(handles, legend_labels,
+                 title=cond_col.replace("_"," ").title(),
+                 loc="center left", 
+                 bbox_to_anchor=(0.90, 0.5), 
+                 frameon=True)
+
+    g.fig.subplots_adjust(right=0.85, wspace=0.1) 
+
+    if save_path:
+        g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
+
+    plt.show()
+    return g
 
 
 

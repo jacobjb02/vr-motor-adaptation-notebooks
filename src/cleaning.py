@@ -1,3 +1,6 @@
+import pandas as pd
+import numpy as np
+
 """
 Selecting, filtering, and cleaning data.
 """
@@ -61,6 +64,47 @@ def distance_target_ball_radii(data,
     return corrected
 
 
-    
+def flag_outlier_participants(data,
+                              y_col,
+                              phase_col='phase',
+                              baseline_string='baseline',
+                              target_col='target_x_label',
+                              ppid_col='ppid_full',
+                              sd_threshold=2):
+
+    # Isolate baseline trials
+    is_baseline = data[phase_col] == baseline_string
+    df_base = data[is_baseline].copy()
+
+    # Calculate each participant's average error per target
+    # This reduces the data from trial-level to participant-target-level
+    subj_means = df_base.groupby([ppid_col, target_col])[y_col].mean().reset_index(name='subj_target_mean')
+
+    # Calculate the GROUP mean and GROUP SD for each target
+    # Grouping ONLY by target_col evaluates the population distribution
+    subj_means['group_target_mean'] = subj_means.groupby(target_col)['subj_target_mean'].transform('mean')
+    subj_means['group_target_sd'] = subj_means.groupby(target_col)['subj_target_mean'].transform('std')
+
+    # Identify outlier participants (inter-subject comparison)
+    subj_means['is_participant_outlier'] = (
+        np.abs(subj_means['subj_target_mean'] - subj_means['group_target_mean']) > 
+        (subj_means['group_target_sd'] * sd_threshold)
+    )
+
+    # Extract the unique IDs of participants who failed the threshold on any target
+    outlier_ppids = subj_means.loc[subj_means['is_participant_outlier'], ppid_col].unique()
+
+    if len(outlier_ppids) > 0:
+        print(f"--- Inter-Subject Outlier Detection ({y_col}) ---")
+        print(f"Participants exceeding {sd_threshold} SD from group mean: {outlier_ppids.tolist()}")
+        
+        # Breakdown of which targets they failed on
+        print("\nTarget breakdown for outliers:")
+        print(subj_means[subj_means['is_participant_outlier']][[ppid_col, target_col, 'subj_target_mean', 'group_target_mean']])
+        print("---------------------------------")
+    else:
+        print(f"No participant-level outliers detected for {y_col} at {sd_threshold} SD.")
+
+    return outlier_ppids
 
     
