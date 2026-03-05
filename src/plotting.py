@@ -5,6 +5,7 @@ Plotting functions.
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
+import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
 from matplotlib.colors import Normalize
@@ -122,9 +123,177 @@ def plot_baseline(
     return g
 
 
+def plot_all_trials(
+    data,
+    cond_col,
+    ppid_col,
+    row_col,
+    col_col,
+    target_col,
+    transition_col=None,
+    show_zero_line=False,
+    y_col='baseline_corrected_dist',
+    y_lim=(None, 110.0),
+    x_col='trial_num_target',
+    estimator='mean',
+    context='notebook',
+    marker_size=4,
+    font_scale=3,
+    save_path='../figures/exposure_trials_by_target_x_set.pdf',
+    dpi=300
+):
+    data = data.copy()
+    data[x_col] = data[x_col].astype(float)
 
+    # --- Identify Transition Trials and Active Spans ---
+    transition_trials = []
+    inactive_spans = []
+    
+    if transition_col and transition_col in data.columns:
+        schedule_df = data[[x_col, transition_col]].drop_duplicates().sort_values(x_col).reset_index(drop=True)
+        
+        # 1. Get explicit transition lines
+        shifted_state = schedule_df[transition_col].shift(1)
+        is_transition = (schedule_df[transition_col] != shifted_state) & shifted_state.notna()
+        transition_trials = schedule_df.loc[is_transition, x_col].unique()
 
+        # 2. Get spans where transition_col == 1 (Perturbation ON)
+        in_inactive_block = False
+        start_x = None
+        
+        for idx, row in schedule_df.iterrows():
+            val = row[transition_col]
+            x_val = row[x_col]
+            
+            if val == 0 and not in_inactive_block:
+                start_x = x_val
+                in_inactive_block = True
+            elif val == 1 and in_inactive_block:
+                inactive_spans.append((start_x, x_val))
+                in_inactive_block = False
+                
+        # Close any trailing active block that reaches the end of the dataframe
+        if in_inactive_block:
+            inactive_spans.append((start_x, schedule_df[x_col].max()))
 
+    # --- PAD MISSING X-VALUES WITH NANS TO BREAK LINES ---
+    grouping_cols = [c for c in [ppid_col, cond_col, target_col, row_col, col_col] if c and c in data.columns]
+    
+    unique_groups = data[grouping_cols].drop_duplicates().assign(_key=1)
+    unique_x = pd.DataFrame({x_col: data[x_col].dropna().unique(), '_key': 1})
+    full_grid = pd.merge(unique_groups, unique_x, on='_key').drop('_key', axis=1)
+
+    # Merge to insert rows with NaN in y_col for missing x-values
+    data = pd.merge(full_grid, data, on=grouping_cols + [x_col], how='left')
+
+    # --- Categorical Assignment and Plotting Setup ---
+    labels = sorted(data[target_col].dropna().unique(), key=str)
+    data[target_col] = pd.Categorical(data[target_col], categories=labels, ordered=True)
+    palette_map = dict(zip(labels, sns.color_palette("bright", len(labels))))
+
+    sns.set_context(context, font_scale=font_scale)
+    sns.set_theme(style="darkgrid")
+
+    g = sns.FacetGrid(
+        data,
+        row=row_col,
+        col=col_col,
+        sharex=True,
+        sharey=True,
+        margin_titles=True
+    )
+    g.set(ylim=y_lim)
+
+    # 1. Plot individual participant traces
+    g.map_dataframe(
+        sns.lineplot,
+        x=x_col, y=y_col,
+        units=ppid_col, estimator=None,
+        hue=target_col,
+        palette=palette_map,
+        alpha=0.03, legend=False
+    )
+
+    # 2. Plot Mean + SE
+    g.map_dataframe(
+        sns.lineplot,
+        x=x_col, y=y_col,
+        estimator=estimator,
+        linewidth=1.5,
+        errorbar='se', err_kws={"alpha":0.25,"linewidth":0},
+        hue=target_col, style=target_col,
+        markers=True,
+        markersize=marker_size,
+        palette=palette_map,
+        alpha=1, dashes=True
+    )
+
+    g.fig.set_size_inches(24, 16)
+
+    # --- AXIS TRACKING FOR LABEL RESTORATION ---
+    visible_bottom_axes = {}
+    visible_left_axes = {}
+    nrows, ncols = g.axes.shape
+
+    # --- TICKER, REFERENCE LINE, SHADING & EMPTY FACETS ---
+    for i in range(nrows):
+        for j in range(ncols):
+            ax = g.axes[i, j]
+
+            if not ax.lines and not ax.collections:
+                ax.set_visible(False)
+                continue
+
+            visible_bottom_axes[j] = ax
+            if i not in visible_left_axes:
+                visible_left_axes[i] = ax
+
+            if show_zero_line:
+                ax.axhline(y=0.0, color='black', linestyle='--', alpha=0.3)
+                
+            for span_start, span_end in inactive_spans:
+                ax.axvspan(span_start, span_end, color='gray', alpha=0.15, zorder=0, lw=0)
+                
+            for t_x in transition_trials:
+                ax.axvline(x=t_x, color='gray', linestyle='--', alpha=0.7, zorder=0)
+            
+            ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5, integer=True))
+            ax.xaxis.get_major_formatter().set_scientific(False)
+
+    # --- RESTORE LABELS ON NEW BOUNDARY AXES ---
+    for ax in visible_bottom_axes.values():
+        ax.xaxis.set_tick_params(labelbottom=True)
+        ax.set_xlabel(x_col)
+        ax.xaxis.label.set_visible(True) 
+        
+    for ax in visible_left_axes.values():
+        ax.yaxis.set_tick_params(labelleft=True)
+        ax.set_ylabel(y_col)
+        ax.yaxis.label.set_visible(True) 
+
+    # --- ROBUST LEGEND EXTRACTION ---
+    handles, legend_labels = [], []
+    for ax in g.axes.flat:
+        if ax.get_visible():
+            h, l = ax.get_legend_handles_labels()
+            if h:
+                handles, legend_labels = h, l
+                break
+    
+    if handles:
+        g.fig.legend(handles, legend_labels,
+                     title=cond_col.replace("_"," ").title(),
+                     loc="center left", 
+                     bbox_to_anchor=(0.88, 0.5), 
+                     frameon=True)
+
+    g.fig.subplots_adjust(right=0.82, bottom=0.2, left=0.1, wspace=0.1)
+
+    if save_path:
+        g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
+
+    plt.show()
+    return g
 
 # early late exposure
 import pandas as pd
@@ -189,20 +358,28 @@ def plot_early_late_exposure(
         color='0.5', alpha=0.15, linewidth=0.8,
         legend=False
     )
-
-    n_hues = data[cond_col].nunique()
-    dynamic_markers = ["o", "s", "D", "v"][:n_hues]
-    dynamic_linestyles = ["-", "--", "-.", ":"][:n_hues]
-
-    # Mean line and SE
+        
+    # 1. Extract the explicit global order of hue levels
+    global_hue_order = list(data[cond_col].unique())
+    n_hues = len(global_hue_order)
+    
+    # 2. Define markers and linestyles as lists scaled to the number of hues
+    marker_list = ["o", "s", "D", "^", "v", "<", ">"]
+    style_list = ["-", "--", "-.", ":", "-", "--", "-."]
+    
+    dynamic_markers = marker_list[:n_hues]
+    dynamic_linestyles = style_list[:n_hues]
+    
+    # 3. Update the pointplot call
     g.map_dataframe(
         sns.pointplot,
         x=x_col, y=y_col,
-        hue=cond_col,            
+        hue=cond_col,                    
         order=dynamic_x_order, 
+        hue_order=global_hue_order,    # CRITICAL: Synchronizes mapping across all facets
         palette=palette,
-        linestyles=dynamic_linestyles, 
-        markers=dynamic_markers,      
+        linestyles=dynamic_linestyles, # Passed as lists
+        markers=dynamic_markers,       # Passed as lists
         scale=0.8,
         estimator=np.mean,
         errorbar='se',
@@ -225,103 +402,6 @@ def plot_early_late_exposure(
     plt.show()
     return g
     
-# all exposure
-import matplotlib.ticker as ticker
-
-def plot_exposure_trials(
-    data,
-    cond_col,
-    ppid_col,
-    row_col,
-    col_col,
-    target_col,
-    show_zero_line=False,
-    y_col='baseline_corrected_dist',
-    y_lim=(None, 110.0),
-    x_col='trial_num_target',
-    estimator='mean',
-    context='notebook',
-    marker_size=4,
-    font_scale=3,
-    save_path='../figures/exposure_trials_by_target_x_set.pdf',
-    dpi=300
-):
-    data = data.copy()
-    data[x_col] = data[x_col].astype(float)
-
-    labels = sorted(data[target_col].unique(), key=str)
-    data[target_col] = pd.Categorical(data[target_col], categories=labels, ordered=True)
-    palette_map = dict(zip(labels, sns.color_palette("bright", len(labels))))
-
-    sns.set_context(context, font_scale=font_scale)
-    sns.set_theme(style="white")
-
-    g = sns.FacetGrid(
-        data,
-        row=row_col,
-        col=col_col,
-        sharex=True,
-        sharey=True,
-        margin_titles=True
-    )
-    g.set(ylim=y_lim)
-
-    # 1. Plot individual participant traces
-    g.map_dataframe(
-        sns.lineplot,
-        x=x_col, y=y_col,
-        units=ppid_col, estimator=None,
-        hue=target_col,
-        palette=palette_map,
-        alpha=0.03, legend=False
-    )
-
-    # 2. Plot Mean + SE
-    g.map_dataframe(
-        sns.lineplot,
-        x=x_col, y=y_col,
-        estimator=estimator,
-        linewidth=1.5,
-        errorbar='se', err_kws={"alpha":0.25,"linewidth":0},
-        hue=target_col, style=cond_col,
-        markers=True,
-        markersize=marker_size,
-        palette=palette_map,
-        alpha=1, dashes=True
-    )
-
-    g.fig.set_size_inches(18, 11) # Widened further for high font scale labels
-
-    # --- AGGRESSIVE TICKER FIX ---
-    for ax in g.axes.flat:
-        if show_zero_line:
-            ax.axhline(y=0.0, color='black', linestyle='--', alpha=0.3)
-        
-        # Limit the number of ticks to 4-5 to prevent overlap at large font sizes
-        ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5, integer=True))
-        
-        # Remove scientific notation if it appears
-        ax.xaxis.get_major_formatter().set_scientific(False)
-
-    # --- LEGEND & SPACING FIX ---
-    handles, legend_labels = g.axes.flat[0].get_legend_handles_labels()
-    
-    # Legend centered on the right gutter
-    g.fig.legend(handles, legend_labels,
-                 title=cond_col.replace("_"," ").title(),
-                 loc="center left", 
-                 bbox_to_anchor=(0.88, 0.5), 
-                 frameon=True)
-
-    # Increased right/bottom margins to accommodate rotated text and external legend
-    g.fig.subplots_adjust(right=0.82, bottom=0.2, wspace=0.1) 
-
-    if save_path:
-        g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
-
-    plt.show()
-    return g
-
 
 def plot_continuous_exposure(
     data,
@@ -892,11 +972,13 @@ def plot_min_x_z(data,
 
 
 
+from matplotlib.colors import TwoSlopeNorm
+from matplotlib.cm import ScalarMappable
+
 def plot_heatmap(data, x_col, y_col, colour_col, facet_col=None, facet_row=None, 
                  style_col=None, mode='correlation', dark=True, font_scale=1.2, 
                  show_legend=True, show_mean_line=False, mean_line_color=None): 
     
-    # SAFETY: Ensure we are working with columns, not indices
     data = data.copy().reset_index()
     
     # Ensure numerical consistency for the heat map
@@ -929,7 +1011,6 @@ def plot_heatmap(data, x_col, y_col, colour_col, facet_col=None, facet_row=None,
         
         # Mean Overlay Logic
         if show_mean_line:
-            # Check if mean_line_color refers to a data column
             if mean_line_color in data.columns:
                 g.map_dataframe(
                     sns.lineplot, x=x_col, y=y_col, 
@@ -939,38 +1020,42 @@ def plot_heatmap(data, x_col, y_col, colour_col, facet_col=None, facet_row=None,
                     linewidth=3, errorbar=None, zorder=10
                 )
             else:
-                # Treat as a literal Matplotlib color string
                 g.map_dataframe(
                     sns.lineplot, x=x_col, y=y_col, 
                     style=style_col, color=mean_line_color, 
                     linewidth=3, errorbar=None, zorder=10
                 )
         
-        # Colorbar and Legend Handling
+        # Colorbar Handling
         sm = ScalarMappable(cmap=palette, norm=norm)
         sm.set_array([])
-        cbar_ax = g.fig.add_axes([0.92, 0.2, 0.02, 0.6]) 
+        # Placed at 0.85 to leave room for the legend on the right
+        cbar_ax = g.fig.add_axes([0.85, 0.2, 0.02, 0.6]) 
         cbar = g.fig.colorbar(sm, cax=cbar_ax)
         cbar.set_label(colour_col, color=text_color)
         
         if g._legend: g._legend.remove()
+        
+        # Robust Legend Handling across all facets
         if show_legend:
-            handles, labels = g.axes.flat[0].get_legend_handles_labels()
-            # Filter out the colorbar's numeric labels to keep factor labels only
             unique_labels = {}
-            for h, l in zip(handles, labels):
-                if l not in unique_labels and not l.replace('.','',1).replace('-','',1).isdigit():
-                    unique_labels[l] = h
+            for ax in g.axes.flat:
+                handles, labels = ax.get_legend_handles_labels()
+                for h, l in zip(handles, labels):
+                    if l not in unique_labels and not l.replace('.','',1).replace('-','',1).isdigit():
+                        unique_labels[l] = h
             
             if unique_labels:
+                # Placed at 0.92, to the right of the colorbar
                 g.fig.legend(unique_labels.values(), unique_labels.keys(), 
-                             loc='center right', bbox_to_anchor=(0.91, 0.5), 
+                             loc='center left', bbox_to_anchor=(0.92, 0.5), 
                              fontsize='small', title="Factors")
         
         for ax in g.axes.flat:
             ax.set_facecolor(bg_color)
             if dark: ax.tick_params(colors=text_color)
         
-        plt.subplots_adjust(right=0.85, top=0.9) 
+        # Compress subplots to 82% figure width to prevent overlap
+        plt.subplots_adjust(right=0.82, top=0.9) 
         plt.show()
         return g

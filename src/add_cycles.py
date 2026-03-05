@@ -5,19 +5,25 @@ import numpy as np
 
 def add_cycles(data,
                n_trials,
-               grouping_vars,
+               ppid_col,
+               target_col,
+               global_trial_col='trial_num',
                inc_phase=True,
                phase_str='phase'
               ):
 
-    df = data.copy()
-    counts = df.groupby(grouping_vars).cumcount()
+    grouping_vars = [target_col, ppid_col]
     
-    df['cycle_target_num'] = counts // n_trials + 1
+    df = data.copy()
+    global_counts = df.groupby(ppid_col).cumcount()
+    group_counts = df.groupby(grouping_vars).cumcount()
+
+    df['global_cycle_num'] = global_counts // n_trials + 1
+    df['cycle_target_num'] = group_counts // n_trials + 1
 
     # block iteration within phase
     if inc_phase == True:
-        grouping_vars = grouping_vars + ['phase']
+        grouping_vars = grouping_vars + [phase_str]
         counts = df.groupby(grouping_vars).cumcount()
         df['cycle_TargetxPhase_num'] = counts // n_trials + 1
         
