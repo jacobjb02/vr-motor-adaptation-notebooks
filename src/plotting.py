@@ -123,6 +123,13 @@ def plot_baseline(
     return g
 
 
+
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+
 def plot_all_trials(
     data,
     cond_col,
@@ -131,6 +138,7 @@ def plot_all_trials(
     col_col,
     target_col,
     transition_col=None,
+    show_sd_line=False,
     show_zero_line=False,
     y_col='baseline_corrected_dist',
     y_lim=(None, 110.0),
@@ -144,6 +152,11 @@ def plot_all_trials(
 ):
     data = data.copy()
     data[x_col] = data[x_col].astype(float)
+
+    # --- Global Statistics for SD Lines ---
+    if show_sd_line:
+        global_mean = data[y_col].mean()
+        global_sd = data[y_col].std()
 
     # --- Identify Transition Trials and Active Spans ---
     transition_trials = []
@@ -211,7 +224,7 @@ def plot_all_trials(
         units=ppid_col, estimator=None,
         hue=target_col,
         palette=palette_map,
-        alpha=0.03, legend=False
+        alpha=0.1, legend=False
     )
 
     # 2. Plot Mean + SE
@@ -248,8 +261,18 @@ def plot_all_trials(
             if i not in visible_left_axes:
                 visible_left_axes[i] = ax
 
+            # Reference Lines Logic
             if show_zero_line:
                 ax.axhline(y=0.0, color='black', linestyle='--', alpha=0.3)
+                
+            if show_sd_line:
+                # Plot +/- 1 SD lines (alpha=0.4)
+                ax.axhline(y=global_mean + global_sd, color='red', linestyle=':', alpha=0.4, lw = 3, zorder=1)
+                ax.axhline(y=global_mean - global_sd, color='red', linestyle=':', alpha=0.4, lw = 3, zorder=1)
+                
+                # Plot +/- 2 SD lines (alpha=0.2 for visual hierarchy)
+                ax.axhline(y=global_mean + (2 * global_sd), color='red', linestyle=':', alpha=0.2, lw = 1.5, zorder=1)
+                ax.axhline(y=global_mean - (2 * global_sd), color='red', linestyle=':', alpha=0.2, lw = 1.5, zorder=1)
                 
             for span_start, span_end in inactive_spans:
                 ax.axvspan(span_start, span_end, color='gray', alpha=0.15, zorder=0, lw=0)
@@ -294,6 +317,8 @@ def plot_all_trials(
 
     plt.show()
     return g
+
+
 
 # early late exposure
 import pandas as pd

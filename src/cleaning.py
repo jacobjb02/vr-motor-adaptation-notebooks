@@ -107,4 +107,32 @@ def flag_outlier_participants(data,
 
     return outlier_ppids
 
+
+
+def remove_baseline_outlier_trials(data,
+                                   y_col,
+                                   trial_col,
+                                   phase_col='phase',
+                                   baseline_string='baseline',
+                                   error_threshold=50.0):
+
+    # Create boolean masks for phase and threshold
+    is_baseline = data[phase_col] == baseline_string
+    is_outlier = np.abs(data[y_col]) >= error_threshold
+
+    # Define the exact rows to drop (must be BOTH baseline AND an outlier)
+    drop_mask = is_baseline & is_outlier
+    indices_to_drop = data[drop_mask].index
+
+    # Extract the specific trial numbers for logging before removal
+    removed_trials = data.loc[drop_mask, trial_col].tolist()
+    outlier_count = len(removed_trials)
+
+    if outlier_count > 0:
+        print(f"--- Baseline Trial Outlier Removal ({y_col}) ---")
+        print(f"Trials exceeding absolute threshold of {error_threshold}: {outlier_count}")
+
+    # Return the cleaned dataframe 
+    cleaned_data = data.drop(index=indices_to_drop).copy()    
     
+    return cleaned_data
