@@ -224,7 +224,7 @@ def plot_all_trials(
         units=ppid_col, estimator=None,
         hue=target_col,
         palette=palette_map,
-        alpha=0.1, legend=False
+        alpha=0.05, legend=False
     )
 
     # 2. Plot Mean + SE
@@ -232,13 +232,13 @@ def plot_all_trials(
         sns.lineplot,
         x=x_col, y=y_col,
         estimator=estimator,
-        linewidth=1.5,
+        linewidth=3.0,
         errorbar='se', err_kws={"alpha":0.25,"linewidth":0},
-        hue=target_col, style=target_col,
+        hue=target_col, style=None,
         markers=True,
         markersize=marker_size,
         palette=palette_map,
-        alpha=1, dashes=True
+        alpha=0.80, dashes=True
     )
 
     g.fig.set_size_inches(24, 16)

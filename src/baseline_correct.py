@@ -1,33 +1,34 @@
 import numpy as np
 import pandas as pd
-
-
-
-def baseline_correct(data,
-                     phase_col,
-                     baseline_string,
-                     y_col,
-                     PCA_col,
-                     use_PCA = False, 
-                     grouping_vars = ['ppid_full','target_x_label']
-                    ):
     
-    # filter data to baseline
-    df_filtered = data[data[phase_col] == baseline_string]
-    print("BASELINE:", df_filtered.shape)
-
-    # group data by participant x target and calculate mean of error
-    df_baseline = df_filtered.groupby(grouping_vars)[y_col].mean().reset_index()
-    df_baseline = df_baseline.rename(columns={y_col: f"{y_col}_mean"})
-
-    # Merge baseline means back into the main dataframe
-    df_merged = pd.merge(data, df_baseline, on=grouping_vars, how='left', suffixes=('', '_bc'))
-
-    df_merged[f"{y_col}_bc"] = df_merged[y_col] - df_merged[f"{y_col}_mean"]
+def baseline_correct(data, phase_col, baseline_string, y_col, PCA_col, 
+                     min_trial=21, max_trial=52, grouping_vars=['ppid_full','target_x_label']):
     
-    df_merged[f"{PCA_col}_bc"] = df_merged[PCA_col] - df_merged[f"{y_col}_mean"]
-
-
-    return(df_merged)
+    # 1. Filter for the STABLE baseline window only (i.e., trials 21-52)
+    df_filtered = data[(data[phase_col] == baseline_string) & 
+                       (data['trial_num'].between(min_trial, max_trial))]
     
+    # 2. Means and Medians
+    df_baseline = df_filtered.groupby(grouping_vars)[y_col].agg(['mean', 'median']).reset_index()
+    df_baseline = df_baseline.rename(columns={'mean': f"{y_col}_mean", 'median': f"{y_col}_median"})
+    
+    # 3. Merge and Subtract
+    df_merged = pd.merge(data, df_baseline, on=grouping_vars, how='left')
+    df_merged[f"{y_col}_mean_bc"] = df_merged[y_col] - df_merged[f"{y_col}_mean"]
+    df_merged[f"{PCA_col}_mean_bc"] = df_merged[PCA_col] - df_merged[f"{y_col}_mean"]
 
+    df_merged[f"{y_col}_median_bc"] = df_merged[y_col] - df_merged[f"{y_col}_median"]
+    df_merged[f"{PCA_col}_median_bc"] = df_merged[PCA_col] - df_merged[f"{y_col}_median"]
+    
+    # 4. BC Assertion 
+    check_mask = (df_merged[phase_col] == baseline_string) & (df_merged['trial_num'].between(min_trial, max_trial))
+        
+    # Assert Median is zeroed
+    assert np.isclose(df_merged[check_mask].groupby(grouping_vars)[f"{y_col}_median_bc"].median(), 0, atol=1e-8).all(), \
+        "FATAL: Median baseline correction failed."
+            
+    # Assert Mean is zeroed
+    assert np.isclose(df_merged[check_mask].groupby(grouping_vars)[f"{y_col}_mean_bc"].mean(), 0, atol=1e-8).all(), \
+        "FATAL: Mean baseline correction failed."
+        
+    return df_merged

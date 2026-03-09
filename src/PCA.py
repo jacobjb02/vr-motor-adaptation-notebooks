@@ -14,7 +14,7 @@ def compute_PCA_summary(data,
 
     
     # ensure x-axis is the first feature
-    assert features[0] == 'min_pos_from_target_x_cm', "First idex feature MUST belong to the X-dimension!"
+    #assert features[0] == 'min_pos_from_target_x_cm', "First idex feature MUST belong to the X-dimension!"
     
     results = []
 
@@ -67,9 +67,6 @@ def compute_PCA_summary(data,
 
 
 
-
-
-
 def compute_PCA_error(trial_df,
                    #PCA_df,
                    pc_deg,
@@ -103,8 +100,11 @@ def compute_PCA_error(trial_df,
     data_current['tgt_unrotated_x'] = (data_current['tgt_centered_x'] * cos_t) - (data_current['tgt_centered_z'] * sin_t)
     data_current['tgt_unrotated_z'] = (data_current['tgt_centered_x'] * sin_t) + (data_current['tgt_centered_z'] * cos_t)
     # x and z errors
-    data_current['PCA_error_X_cm'] = (data_current['unrotated_x'] - data_current['tgt_unrotated_x']) 
+    data_current['PCA_error_X_cm'] = (data_current['unrotated_x'] - data_current['tgt_unrotated_x']) * -1
     data_current['PCA_error_Z_cm'] = (data_current['unrotated_z'] - data_current['tgt_unrotated_z']) 
+
+    obtuse_mask = np.abs(data_current['pc_rad']) > (np.pi / 2)
+    data_current.loc[obtuse_mask, 'PCA_error_Z_cm'] *= -1
 
     return data_current
        

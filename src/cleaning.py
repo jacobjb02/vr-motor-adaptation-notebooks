@@ -134,5 +134,8 @@ def remove_baseline_outlier_trials(data,
 
     # Return the cleaned dataframe 
     cleaned_data = data.drop(index=indices_to_drop).copy()    
+
+    remaining_baseline_max = cleaned_data.loc[cleaned_data[phase_col] == baseline_string, y_col].abs().max()
+    print(f"Max absolute error remaining in baseline: {remaining_baseline_max}")
     
     return cleaned_data
