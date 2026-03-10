@@ -14,6 +14,7 @@ def baseline_correct(data, phase_col, baseline_string, y_col, PCA_col,
     
     # 3. Merge and Subtract
     df_merged = pd.merge(data, df_baseline, on=grouping_vars, how='left')
+    
     df_merged[f"{y_col}_mean_bc"] = df_merged[y_col] - df_merged[f"{y_col}_mean"]
     df_merged[f"{PCA_col}_mean_bc"] = df_merged[PCA_col] - df_merged[f"{y_col}_mean"]
 
