@@ -1,5 +1,7 @@
 from sklearn.decomposition import PCA
 
+import seaborn as sns
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -55,6 +57,8 @@ def compute_PCA_summary(data,
             
         # append stored data to results 
         results.append(current_group_row)
+        
+    #print(results)
 
     return pd.DataFrame(results)
 
@@ -66,7 +70,9 @@ def compute_PCA_error(trial_df,
                       target_x_col,
                       target_z_col,
                    features,
-                   water_col
+                      group_cols, 
+                   water_col,
+                      show_plots = False
                      ):
 
     # convert PC vector components into radians, making PC rad col
@@ -76,21 +82,67 @@ def compute_PCA_error(trial_df,
     cos_t = np.cos(-trial_df['pc_rad'])
     sin_t = np.sin(-trial_df['pc_rad'])
 
-    # ensure x-axis is the first feature
+    # ensure x-axis is the first feature, and center the data onto the targets. 
     trial_df['centered_x'] = trial_df[features[0]] - trial_df['pc_vector_1_pca_center_x']
     trial_df['centered_z'] = trial_df[features[1]] - trial_df['pc_vector_1_pca_center_z'] 
-    # unrotate the data using sin and cos on the centred data
+    
+    # Check if target centered was correct
+    assert np.isclose(trial_df.groupby(group_cols)['centered_x'].mean(), 0, atol=1e-8).all(), "X not centered in one or more groups"
+    assert np.isclose(trial_df.groupby(group_cols)['centered_z'].mean(), 0, atol=1e-8).all(), "Z not centered in one or more groups"
+            
+    # unrotate the data using sin and cos on the centred data: Places all targets on the same plane for equal comparison
     trial_df['unrotated_x'] = (trial_df['centered_x'] * cos_t) - (trial_df['centered_z'] * sin_t)
     trial_df['unrotated_z'] = (trial_df['centered_x'] * sin_t) + (trial_df['centered_z'] * cos_t)
+
+    # Diagnostic: Visualize unrotating target data-clouds    
+    if show_plots == True:
+        g = sns.relplot(
+            data=trial_df, 
+            x='unrotated_x', 
+            y='unrotated_z',
+            col='target_x_label',  
+            row='water_speed_binary',
+            alpha=0.15,
+            palette='vlag',            
+            kind='scatter'
+        )
+        # Apply grid to all faceted subplots
+        for ax in g.axes.flat:
+            ax.grid(True)
+        
+        plt.show()
+
+
     # apply same unrotation to targets
     trial_df['tgt_centered_x'] = trial_df[target_x_col] - trial_df['pc_vector_1_pca_center_x']
     trial_df['tgt_centered_z'] = trial_df[target_z_col] - trial_df['pc_vector_1_pca_center_z'] 
 
     trial_df['tgt_unrotated_x'] = (trial_df['tgt_centered_x'] * cos_t) - (trial_df['tgt_centered_z'] * sin_t)
     trial_df['tgt_unrotated_z'] = (trial_df['tgt_centered_x'] * sin_t) + (trial_df['tgt_centered_z'] * cos_t)
-    # x and z errors
-    trial_df['PCA_error_X_cm'] = (trial_df['unrotated_x'] - trial_df['tgt_unrotated_x']) #* -1
+    
+    # x and z orthogonal errors
+    trial_df['PCA_extent_error_cm'] = (trial_df['unrotated_x'] - trial_df['tgt_unrotated_x']) 
     trial_df['PCA_error_Z_cm'] = (trial_df['unrotated_z'] - trial_df['tgt_unrotated_z']) 
+
+    
+    # Diagnostic:   
+    if show_plots == True:
+        g = sns.relplot(
+            data=trial_df, 
+            x='PCA_extent_error_cm', 
+            y='PCA_error_Z_cm',
+            col='target_x_label',  
+            row='water_speed_binary',
+            hue='set_order',
+            alpha=0.15,
+            palette='viridis',            
+            kind='scatter'
+        )
+        # Apply grid to all faceted subplots
+        for ax in g.axes.flat:
+            ax.grid(True)
+        
+        plt.show()
 
     return trial_df
        
