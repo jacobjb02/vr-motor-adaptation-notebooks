@@ -122,14 +122,6 @@ def plot_baseline(
 
     return g
 
-
-
-import pandas as pd
-import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-
 def plot_all_trials(
     data,
     cond_col,
@@ -199,6 +191,14 @@ def plot_all_trials(
     # Merge to insert rows with NaN in y_col for missing x-values
     data = pd.merge(full_grid, data, on=grouping_cols + [x_col], how='left')
 
+    # --- CREATE PHASE/SET ORDER IDENTIFIER ---
+    if transition_col and transition_col in data.columns and cond_col in data.columns:
+        data['_phase_id'] = data[transition_col].astype(str) + '_cond_' + data[cond_col].astype(str)
+    elif transition_col and transition_col in data.columns:
+        data['_phase_id'] = data[transition_col].astype(str)
+    else:
+        data['_phase_id'] = '0'
+
     # --- Categorical Assignment and Plotting Setup ---
     labels = sorted(data[target_col].dropna().unique(), key=str)
     data[target_col] = pd.Categorical(data[target_col], categories=labels, ordered=True)
@@ -227,19 +227,75 @@ def plot_all_trials(
         alpha=0.05, legend=False
     )
 
-    # 2. Plot Mean + SE
-    g.map_dataframe(
-        sns.lineplot,
-        x=x_col, y=y_col,
-        estimator=estimator,
-        linewidth=3.0,
-        errorbar='se', err_kws={"alpha":0.25,"linewidth":0},
-        hue=target_col, style=None,
-        markers=True,
-        markersize=marker_size,
-        palette=palette_map,
-        alpha=0.80, dashes=True
-    )
+    # 2. Plot Mean + SE separately per phase to prevent cross-phase connections
+    # Handle both faceted and non-faceted cases
+    axes_to_plot = []
+    
+    if row_col or col_col:
+        # Faceted case: iterate through axes_dict
+        for facet_key, ax in g.axes_dict.items():
+            if not ax.get_visible():
+                continue
+            
+            # Handle both (row,col) and single row cases
+            if isinstance(facet_key, tuple):
+                row_val, col_val = facet_key
+            else:
+                row_val = facet_key
+                col_val = None
+            
+            # Get data for this facet
+            facet_data = data.copy()
+            if row_col and row_col in data.columns:
+                facet_data = facet_data[facet_data[row_col] == row_val]
+            if col_col and col_col in data.columns:
+                facet_data = facet_data[facet_data[col_col] == col_val]
+            
+            axes_to_plot.append((ax, facet_data))
+    else:
+        # Non-faceted case: single axis
+        axes_to_plot.append((g.ax, data))
+    
+    # Plot means on each axis
+    for ax, facet_data in axes_to_plot:
+        # Calculate means per phase/target for this facet
+        grouped = facet_data.dropna(subset=[y_col]).groupby(
+            [x_col, target_col, '_phase_id']
+        ).agg({y_col: ['mean', 'sem', 'count']}).reset_index()
+        
+        grouped.columns = [x_col, target_col, '_phase_id', 'mean', 'sem', 'count']
+        grouped['sem'] = grouped['sem'].fillna(0)
+        
+        # Plot each target color separately
+        for target_label in labels:
+            target_data = grouped[grouped[target_col] == target_label].sort_values([x_col])
+            color = palette_map[target_label]
+            
+            if len(target_data) > 0:
+                # Plot line per phase (this naturally breaks at phase boundaries)
+                for phase_id in target_data['_phase_id'].unique():
+                    phase_subset = target_data[target_data['_phase_id'] == phase_id].sort_values(x_col)
+                    
+                    if len(phase_subset) > 0:
+                        ax.plot(
+                            phase_subset[x_col],
+                            phase_subset['mean'],
+                            marker='o',
+                            markersize=marker_size,
+                            linewidth=3.0,
+                            color=color,
+                            alpha=0.80
+                        )
+                        
+                        # Add error bars
+                        ax.fill_between(
+                            phase_subset[x_col],
+                            phase_subset['mean'] - phase_subset['sem'],
+                            phase_subset['mean'] + phase_subset['sem'],
+                            alpha=0.25,
+                            color=color,
+                            linewidth=0
+                        )
 
     g.fig.set_size_inches(24, 16)
 
@@ -317,8 +373,6 @@ def plot_all_trials(
 
     plt.show()
     return g
-
-
 
 # early late exposure
 import pandas as pd
