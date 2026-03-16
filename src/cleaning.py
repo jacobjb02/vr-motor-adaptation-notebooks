@@ -20,7 +20,7 @@ def extract_key_columns(data):
     
     # selected columns (edit if needed)
     cols = [
-        'experiment', 'ppid_full', 'speed_label', 'target_x_label', 'target_position_x_cm', 'target_position_z_cm', 'trial_num', 'phase', 'phase_target_trial_num', 'trial_num_target', 'global_cycle_num', 'cycle_target_num','cycle_TargetxPhase_num', 'launch_deviation', 'launch_Speed', 'ball_dist_to_center_cm', 'signed_euclidean_cm', 'lateral_error_x_cm', 'depth_error_z_cm', 'target_hit', 'water_speed_binary', 'water_speed_m_s', 'sign_label','set_order', 'min_pos_from_target_x_cm', 'min_pos_from_target_z_cm','target_angle_90'
+        'experiment', 'ppid_full', 'speed_label', 'target_x_label', 'target_position_x_cm', 'target_position_z_cm', 'trial_num', 'phase', 'phase_trial_num', 'phase_target_trial_num', 'trial_num_target', 'global_cycle_num', 'cycle_target_num','cycle_TargetxPhase_num', 'launch_deviation', 'launch_Speed', 'ball_dist_to_center_cm', 'signed_euclidean_cm', 'lateral_error_x_cm', 'depth_error_z_cm', 'target_hit', 'water_speed_binary', 'water_speed_m_s', 'sign_label','set_order', 'min_pos_from_target_x_cm', 'min_pos_from_target_z_cm','target_angle_90'
             ]
 
     # make copied subset of original df 
@@ -109,7 +109,7 @@ def flag_outlier_participants(data,
 
 
 
-def remove_baseline_outlier_trials(data,
+def remove_baseline_outlier_trials_threshold(data,
                                    y_col,
                                    trial_col,
                                    phase_col='phase',
@@ -137,5 +137,51 @@ def remove_baseline_outlier_trials(data,
 
     remaining_baseline_max = cleaned_data.loc[cleaned_data[phase_col] == baseline_string, y_col].abs().max()
     print(f"Max absolute error remaining in baseline: {remaining_baseline_max}")
+    
+    return cleaned_data
+
+
+def remove_baseline_outlier_trials_threshold_sd(data,
+                                   y_col,
+                                   trial_col,
+                                   phase_col='phase',
+                                   baseline_string='baseline',
+                                   sd_error_threshold=2.0):
+    
+    # Isolate baseline data to calculate distribution statistics
+    baseline_series = data.loc[data[phase_col] == baseline_string, y_col]
+    
+    if baseline_series.empty:
+        print(f"Warning: No baseline data found for {y_col}. Returning original data.")
+        return data
+
+    baseline_mean = baseline_series.mean()
+    baseline_std = baseline_series.std()
+    
+    # Calculate absolute threshold value
+    abs_threshold_val = sd_error_threshold * baseline_std
+
+    # Define masks
+    is_baseline = data[phase_col] == baseline_string
+    # Deviation from baseline mean exceeds the SD-based threshold
+    is_outlier = np.abs(data[y_col] - baseline_mean) > abs_threshold_val
+
+    # Identify indices to drop (Baseline AND Outlier)
+    drop_mask = is_baseline & is_outlier
+    indices_to_drop = data[drop_mask].index
+
+    removed_trials = data.loc[drop_mask, trial_col].tolist()
+    outlier_count = len(removed_trials)
+
+    trial_count = len(baseline_series)
+
+    # Logging
+    print(f"--- Baseline Trial Outlier Removal ({y_col}) ---")
+    print(f"Baseline Mean: {baseline_mean:.4f}, SD: {baseline_std:.4f}")
+    print(f"SD Threshold: {sd_error_threshold} ({abs_threshold_val:.4f} units)")
+    print(f"Trials removed: {outlier_count} / {trial_count} total baseline trials")
+
+    # Return cleaned dataframe
+    cleaned_data = data.drop(index=indices_to_drop).copy()
     
     return cleaned_data

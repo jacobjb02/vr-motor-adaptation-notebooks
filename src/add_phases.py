@@ -54,6 +54,9 @@ def df_add_phases(
 
 
     df['phase_target_trial_num'] = df.groupby(['ppid_full', 'phase', 'target_x_label']).cumcount() + 1
+    
+    df['phase_trial_num'] = df.groupby(['ppid_full', 'phase']).cumcount() + 1
+
 
     return df
 

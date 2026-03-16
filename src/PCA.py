@@ -144,6 +144,12 @@ def compute_PCA_error(trial_df,
         
         plt.show()
 
+
+
+    # Abs PCA DV:
+    trial_df['abs_PCA_extent_error_cm'] = np.abs(trial_df['PCA_extent_error_cm'])
+
+
     return trial_df
        
 

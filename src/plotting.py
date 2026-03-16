@@ -1,6 +1,6 @@
 """
 Plotting functions.
-"""
+""" 
 
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -13,13 +13,24 @@ from matplotlib.cm import ScalarMappable
 from matplotlib.colors import TwoSlopeNorm, Normalize
 
 
+
+# Global static color mapping for targets
+_colors = sns.color_palette("bright", 4)
+TARGET_PALETTE = {
+    "L60": _colors[2], # Green
+    "L30": _colors[0], # Blue
+    "R30":   _colors[1], # Orange
+    "R60":   _colors[3]  # Red
+}
+
+
 # trial schedule plot
 def plot_trial_schedule(
     data, 
     y_col,
     context='notebook',
     font_scale=2,
-    save_path='../figures/trial_schedule.pdf',
+    save_path='../figures/trial_schedule.svg',
     dpi=300
 ):
 
@@ -98,8 +109,7 @@ def plot_baseline(
                     linewidth=3, hue='target_x_label', style=cond_col
                    )
                     
-    # set axis labels
-    #g.set_axis_labels('Trial Number (per target)', 'Min Distance (cm)')
+
 
         
     if show_zero_line == True:
@@ -121,6 +131,10 @@ def plot_baseline(
     plt.show()
 
     return g
+
+
+
+    
 
 def plot_all_trials(
     data,
@@ -202,7 +216,6 @@ def plot_all_trials(
     # --- Categorical Assignment and Plotting Setup ---
     labels = sorted(data[target_col].dropna().unique(), key=str)
     data[target_col] = pd.Categorical(data[target_col], categories=labels, ordered=True)
-    palette_map = dict(zip(labels, sns.color_palette("bright", len(labels))))
 
     sns.set_context(context, font_scale=font_scale)
     sns.set_theme(style="darkgrid")
@@ -223,28 +236,24 @@ def plot_all_trials(
         x=x_col, y=y_col,
         units=ppid_col, estimator=None,
         hue=target_col,
-        palette=palette_map,
+        palette=TARGET_PALETTE,
         alpha=0.05, legend=False
     )
 
     # 2. Plot Mean + SE separately per phase to prevent cross-phase connections
-    # Handle both faceted and non-faceted cases
     axes_to_plot = []
     
     if row_col or col_col:
-        # Faceted case: iterate through axes_dict
         for facet_key, ax in g.axes_dict.items():
             if not ax.get_visible():
                 continue
             
-            # Handle both (row,col) and single row cases
             if isinstance(facet_key, tuple):
                 row_val, col_val = facet_key
             else:
                 row_val = facet_key
                 col_val = None
             
-            # Get data for this facet
             facet_data = data.copy()
             if row_col and row_col in data.columns:
                 facet_data = facet_data[facet_data[row_col] == row_val]
@@ -253,12 +262,10 @@ def plot_all_trials(
             
             axes_to_plot.append((ax, facet_data))
     else:
-        # Non-faceted case: single axis
         axes_to_plot.append((g.ax, data))
     
     # Plot means on each axis
     for ax, facet_data in axes_to_plot:
-        # Calculate means per phase/target for this facet
         grouped = facet_data.dropna(subset=[y_col]).groupby(
             [x_col, target_col, '_phase_id']
         ).agg({y_col: ['mean', 'sem', 'count']}).reset_index()
@@ -266,13 +273,13 @@ def plot_all_trials(
         grouped.columns = [x_col, target_col, '_phase_id', 'mean', 'sem', 'count']
         grouped['sem'] = grouped['sem'].fillna(0)
         
-        # Plot each target color separately
         for target_label in labels:
             target_data = grouped[grouped[target_col] == target_label].sort_values([x_col])
-            color = palette_map[target_label]
+            
+            # --- CRITICAL FIX: Reference global palette ---
+            color = TARGET_PALETTE[target_label]
             
             if len(target_data) > 0:
-                # Plot line per phase (this naturally breaks at phase boundaries)
                 for phase_id in target_data['_phase_id'].unique():
                     phase_subset = target_data[target_data['_phase_id'] == phase_id].sort_values(x_col)
                     
@@ -287,7 +294,6 @@ def plot_all_trials(
                             alpha=0.80
                         )
                         
-                        # Add error bars
                         ax.fill_between(
                             phase_subset[x_col],
                             phase_subset['mean'] - phase_subset['sem'],
@@ -317,18 +323,15 @@ def plot_all_trials(
             if i not in visible_left_axes:
                 visible_left_axes[i] = ax
 
-            # Reference Lines Logic
             if show_zero_line:
                 ax.axhline(y=0.0, color='black', linestyle='--', alpha=0.3)
                 
             if show_sd_line:
-                # Plot +/- 1 SD lines (alpha=0.4)
-                ax.axhline(y=global_mean + global_sd, color='red', linestyle=':', alpha=0.4, lw = 3, zorder=1)
-                ax.axhline(y=global_mean - global_sd, color='red', linestyle=':', alpha=0.4, lw = 3, zorder=1)
+                ax.axhline(y=global_mean + global_sd, color='red', linestyle=':', alpha=0.4, lw=3, zorder=1)
+                ax.axhline(y=global_mean - global_sd, color='red', linestyle=':', alpha=0.4, lw=3, zorder=1)
                 
-                # Plot +/- 2 SD lines (alpha=0.2 for visual hierarchy)
-                ax.axhline(y=global_mean + (2 * global_sd), color='red', linestyle=':', alpha=0.2, lw = 1.5, zorder=1)
-                ax.axhline(y=global_mean - (2 * global_sd), color='red', linestyle=':', alpha=0.2, lw = 1.5, zorder=1)
+                ax.axhline(y=global_mean + (2 * global_sd), color='red', linestyle=':', alpha=0.2, lw=1.5, zorder=1)
+                ax.axhline(y=global_mean - (2 * global_sd), color='red', linestyle=':', alpha=0.2, lw=1.5, zorder=1)
                 
             for span_start, span_end in inactive_spans:
                 ax.axvspan(span_start, span_end, color='gray', alpha=0.15, zorder=0, lw=0)
@@ -350,21 +353,33 @@ def plot_all_trials(
         ax.set_ylabel(y_col)
         ax.yaxis.label.set_visible(True) 
 
-    # --- ROBUST LEGEND EXTRACTION ---
-    handles, legend_labels = [], []
-    for ax in g.axes.flat:
-        if ax.get_visible():
-            h, l = ax.get_legend_handles_labels()
-            if h:
-                handles, legend_labels = h, l
-                break
+    import matplotlib.lines as mlines
+
+    # --- CUSTOM LEGEND CREATION ---
+    handles = []
     
+    # Iterate directly over the global palette to guarantee all four targets appear
+    for target_label, color in TARGET_PALETTE.items():
+        # Create a proxy artist (a line) for each target
+        handle = mlines.Line2D(
+            [], [], 
+            color=color, 
+            marker='o', 
+            markersize=marker_size, 
+            linewidth=3.0, 
+            label=target_label
+        )
+        handles.append(handle)
+
+    # Apply the legend to the figure, fixing the title to reflect the target column
     if handles:
-        g.fig.legend(handles, legend_labels,
-                     title=cond_col.replace("_"," ").title(),
-                     loc="center left", 
-                     bbox_to_anchor=(0.88, 0.5), 
-                     frameon=True)
+        g.fig.legend(
+            handles=handles,
+            title=target_col.replace("_", " ").title(),
+            loc="center left", 
+            bbox_to_anchor=(0.88, 0.5), 
+            frameon=True
+        )
 
     g.fig.subplots_adjust(right=0.82, bottom=0.2, left=0.1, wspace=0.1)
 
@@ -374,12 +389,17 @@ def plot_all_trials(
     plt.show()
     return g
 
+
+
+
+
+    
+
 # early late exposure
 import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-
 def plot_early_late_exposure(
     data,
     cond_col, # colour
@@ -389,7 +409,7 @@ def plot_early_late_exposure(
     line_col,
     facet_row,
     facet_col,
-    ylim=None,              # NEW: Argument for y-axis limits (e.g., [-30, 30])
+    ylim=None,              
     show_zero_line=False,
     context='notebook',
     font_scale=1.2,          
@@ -402,9 +422,9 @@ def plot_early_late_exposure(
     palette = sns.color_palette('bright')
     
     data = data.copy()
-    data['unit_id'] = data[ppid_col].astype(str) + '_' + data[line_col].astype(str)
-    dynamic_x_order = list(data[x_col].dropna().unique())
-    data[x_col] = pd.Categorical(data[x_col], categories=dynamic_x_order, ordered=True)
+    #data['unit_id'] = data[ppid_col].astype(str) + '_' + data[line_col].astype(str)
+    #dynamic_x_order = list(data[x_col].dropna().unique())
+    #data[x_col] = pd.Categorical(data[x_col], categories=dynamic_x_order, ordered=True)
 
     g = sns.FacetGrid(
         data,
@@ -422,9 +442,9 @@ def plot_early_late_exposure(
         sns.stripplot,
         x=x_col, y=y_col,
         hue=cond_col,
-        order=dynamic_x_order,
+        #order=dynamic_x_order,
         jitter=0.05, alpha=0.40, size=4,
-        palette=palette,
+        palette=TARGET_PALETTE, 
         legend=False
     )
 
@@ -432,7 +452,7 @@ def plot_early_late_exposure(
     g.map_dataframe(
         sns.lineplot,
         x=x_col, y=y_col,
-        units='unit_id',
+        units=ppid_col,
         estimator=None,
         color='0.5', alpha=0.15, linewidth=0.8,
         legend=False
@@ -442,36 +462,55 @@ def plot_early_late_exposure(
     global_hue_order = list(data[cond_col].unique())
     n_hues = len(global_hue_order)
     
-    # 2. Define markers and linestyles as lists scaled to the number of hues
-    marker_list = ["o", "s", "D", "^", "v", "<", ">"]
-    style_list = ["-", "--", "-.", ":", "-", "--", "-."]
-    
-    dynamic_markers = marker_list[:n_hues]
-    dynamic_linestyles = style_list[:n_hues]
-    
-    # 3. Update the pointplot call
+
+    # 2. Update the pointplot call
     g.map_dataframe(
         sns.pointplot,
         x=x_col, y=y_col,
         hue=cond_col,                    
-        order=dynamic_x_order, 
+        #order=dynamic_x_order, 
         hue_order=global_hue_order,    # CRITICAL: Synchronizes mapping across all facets
-        palette=palette,
-        linestyles=dynamic_linestyles, # Passed as lists
-        markers=dynamic_markers,       # Passed as lists
+        palette=TARGET_PALETTE,
         scale=0.8,
         estimator=np.mean,
         errorbar='se',
         capsize=.1
     )
 
-    # Apply Y-limits and Zero Line
     if ylim is not None:
         g.set(ylim=ylim)
 
-    if show_zero_line:
-        for ax in g.axes.flat:
-            ax.axhline(0.0, color='black', linestyle='--', alpha=0.3)
+    # --- HIDE EMPTY FACETS & RESTORE LABELS ---
+    visible_bottom_axes = {}
+    visible_left_axes = {}
+    nrows, ncols = g.axes.shape
+
+    for i in range(nrows):
+        for j in range(ncols):
+            ax = g.axes[i, j]
+
+            # If no data elements were mapped to this axis, hide it
+            if not ax.lines and not ax.collections:
+                ax.set_visible(False)
+                continue
+
+            # Track the outermost visible axes for label restoration
+            visible_bottom_axes[j] = ax
+            if i not in visible_left_axes:
+                visible_left_axes[i] = ax
+
+            # Apply Zero Line only to populated axes
+            if show_zero_line:
+                ax.axhline(0.0, color='black', linestyle='--', alpha=0.3)
+
+    # Restore X and Y labels/ticks on the new boundary axes
+    for ax in visible_bottom_axes.values():
+        ax.xaxis.set_tick_params(labelbottom=True)
+        ax.xaxis.label.set_visible(True) 
+        
+    for ax in visible_left_axes.values():
+        ax.yaxis.set_tick_params(labelleft=True)
+        ax.yaxis.label.set_visible(True) 
     
     g.add_legend(title=cond_col)
 
@@ -527,7 +566,7 @@ def plot_continuous_exposure(
         sns.lineplot,
         x=x_col, y=y_col,
         units=ppid_col, estimator=None,
-        hue=target_col, palette=palette_map,
+        hue=target_col, palette=TARGET_PALETTE,
         alpha=0.03, legend=False
     )
 
@@ -611,7 +650,7 @@ def plot_exposure_trials_2m(
     g.map_dataframe(sns.lineplot,
                     x='phase_trial_target', y=y_col,
                     estimator=None, units='ppid',
-                    hue = 'target_x_label', palette='bright',
+                    hue = 'target_x_label', palette=TARGET_PALETTE,
                     alpha=0.25)
     
     # mean line and se bands
@@ -681,7 +720,7 @@ def plot_generalization(
     g.map_dataframe(sns.pointplot,
                     x='phase', y=y_col,
                     order=['training_1','training_2'],
-                    hue=cond_col, palette='bright', alpha = 0.7,
+                    hue=cond_col, palette=TARGET_PALETTE, alpha = 0.7,
                     estimator=np.mean, errorbar='se', capsize=.15,
                     legend=False
     )
@@ -821,7 +860,7 @@ def plot_baseline_washout(
     g.map_dataframe(sns.lineplot,
                     x=x_col, y=y_col,
                     estimator=None, units=ppid_col,
-                    hue = 'target_x_label', palette='bright',
+                    hue = 'target_x_label', palette=TARGET_PALETTE,
                     alpha=0.1)
 
     
@@ -855,7 +894,7 @@ def plot_baseline_washout(
                         estimator='mean', errorbar='se',
                         hue='target_x_label',
                         style=speed_col,
-                        palette='bright',
+                        palette=TARGET_PALETTE,
                         markers=True,
                         markersize=marker_size,
                         alpha=1
@@ -1005,7 +1044,7 @@ def plot_min_x_z(data,
 
     g.map_dataframe(sns.scatterplot,
                     data=data,
-                    x='min_pos_from_target_x', y='min_pos_from_target_z',
+                    x='min_pos_from_target_x_cm', y='min_pos_from_target_z_cm',
                     alpha=0.02
                    )
 
@@ -1026,7 +1065,7 @@ def plot_min_x_z(data,
     
                 slope_val = np.tan(np.deg2rad(slope_deg))
     
-                ax.axline(xy1=(target_x, 1.4),
+                ax.axline(xy1=(target_x, 140),
                           slope=slope_val,
                           color='black',
                           linestyle='--',

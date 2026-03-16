@@ -31,5 +31,10 @@ def baseline_correct(data, phase_col, baseline_string, y_col, PCA_col,
     # Assert Mean is zeroed
     assert np.isclose(df_merged[check_mask].groupby(grouping_vars)[f"{y_col}_mean_bc"].mean(), 0, atol=1e-8).all(), \
         "FATAL: Mean baseline correction failed."
+
+    # 5. Make abs BC columns
+    df_merged[f"abs_{y_col}_median_bc"] = np.abs(df_merged[f"{y_col}_median_bc"])
+    df_merged[f"abs_{PCA_col}_mean_bc"] = np.abs(df_merged[f"{y_col}_mean_bc"])
+    
         
     return df_merged
