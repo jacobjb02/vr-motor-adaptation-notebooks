@@ -33,8 +33,8 @@ def baseline_correct(data, phase_col, baseline_string, y_col, PCA_col,
         "FATAL: Mean baseline correction failed."
 
     # 5. Make abs BC columns
-    df_merged[f"abs_{y_col}_median_bc"] = np.abs(df_merged[f"{y_col}_median_bc"])
-    df_merged[f"abs_{PCA_col}_mean_bc"] = np.abs(df_merged[f"{y_col}_mean_bc"])
+    #df_merged[f"abs_{y_col}_median_bc"] = np.abs(df_merged[f"{y_col}_median_bc"])
+    #df_merged[f"abs_{PCA_col}_mean_bc"] = np.abs(df_merged[f"{y_col}_mean_bc"])
     
         
     return df_merged

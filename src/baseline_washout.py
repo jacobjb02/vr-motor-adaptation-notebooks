@@ -12,6 +12,8 @@ def retain_baseline_washout(data,
     
     data_baseline_washout = data[data[phase_col].isin(phases_to_keep)].copy()
 
+    data_baseline_washout_still = data_baseline_washout[np.abs(data_baseline_washout[water_col]) < 1.0] 
+
     # Extract and join unique experiment strings
     unique_exps = data[experiment_col].unique().astype(str)
     exp_tags = "_".join(unique_exps[:2]) 
@@ -26,7 +28,7 @@ def retain_baseline_washout(data,
     file_name = f"baseline_washout_{exp_tags}_speed_{speed_tags}.csv"
     file_path = f"..\\data\\{experiment_type}\\{file_name}"
     
-    data_baseline_washout.to_csv(file_path, index=False)
+    data_baseline_washout_still.to_csv(file_path, index=False)
     print(f"Saved: {file_path}")
     
-    return data_baseline_washout
+    return data_baseline_washout_still
