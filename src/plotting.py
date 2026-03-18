@@ -13,7 +13,6 @@ from matplotlib.cm import ScalarMappable
 from matplotlib.colors import TwoSlopeNorm, Normalize
 
 
-
 # Global static color mapping for targets
 _colors = sns.color_palette("bright", 4)
 TARGET_PALETTE = {
@@ -71,7 +70,7 @@ def plot_baseline(
     y_lim=(None,50.0),
     show_zero_line=True,
     context='notebook',
-    font_scale=3,
+    font_scale=1.2,
     save_path='../figures/baseline_trials_by_target.pdf',
     dpi=300
 ):
@@ -79,7 +78,7 @@ def plot_baseline(
     # filter for baseline
     #baseline_df = data[data['phase'] == 'baseline']
 
-    sns.set_context(context, font_scale) 
+    sns.set_context(context, font_scale=font_scale)
     sns.set_theme()
     sns.set_style("white")
 
@@ -153,7 +152,7 @@ def plot_all_trials(
     context='notebook',
     marker_size=4,
     font_scale=3,
-    save_path='../figures/exposure_trials_by_target_x_set.pdf',
+    save_path='../figures/exposure_trials_by_target_x_set.svg',
     dpi=300
 ):
     data = data.copy()
@@ -218,7 +217,7 @@ def plot_all_trials(
     data[target_col] = pd.Categorical(data[target_col], categories=labels, ordered=True)
 
     sns.set_context(context, font_scale=font_scale)
-    sns.set_theme(style="darkgrid")
+    sns.set_theme(style="whitegrid")
 
     g = sns.FacetGrid(
         data,
@@ -396,10 +395,6 @@ def plot_all_trials(
     
 
 # early late exposure
-import pandas as pd
-import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
 def plot_early_late_exposure(
     data,
     cond_col, # colour
@@ -409,22 +404,19 @@ def plot_early_late_exposure(
     line_col,
     facet_row,
     facet_col,
+    target_col='target_x_label',  # NEW: column for target
     ylim=None,              
     show_zero_line=False,
     context='notebook',
     font_scale=1.2,          
     facet_height=4,          
     facet_aspect=1.2,        
-    save_path='../figures/early_late_exposure_by_target_x_set.pdf',
+    save_path='../figures/early_late_exposure_by_target_x_set.svg',
     dpi=300
 ):
     sns.set_theme(context=context, font_scale=font_scale, style="white")
-    palette = sns.color_palette('bright')
     
     data = data.copy()
-    #data['unit_id'] = data[ppid_col].astype(str) + '_' + data[line_col].astype(str)
-    #dynamic_x_order = list(data[x_col].dropna().unique())
-    #data[x_col] = pd.Categorical(data[x_col], categories=dynamic_x_order, ordered=True)
 
     g = sns.FacetGrid(
         data,
@@ -437,39 +429,28 @@ def plot_early_late_exposure(
         margin_titles=True
     )
 
-    # Individual data points
-    g.map_dataframe(
-        sns.stripplot,
-        x=x_col, y=y_col,
-        hue=cond_col,
-        #order=dynamic_x_order,
-        jitter=0.05, alpha=0.40, size=4,
-        palette=TARGET_PALETTE, 
-        legend=False
-    )
-
-    # Individual participant lines
+    # Individual participant lines - colored by target
     g.map_dataframe(
         sns.lineplot,
         x=x_col, y=y_col,
         units=ppid_col,
+        hue=target_col,
         estimator=None,
-        color='0.5', alpha=0.15, linewidth=0.8,
+        palette=TARGET_PALETTE,
+        alpha=0.10, 
+        linewidth=0.8,
         legend=False
     )
         
-    # 1. Extract the explicit global order of hue levels
+    # Extract the explicit global order of hue levels for condition
     global_hue_order = list(data[cond_col].unique())
-    n_hues = len(global_hue_order)
     
-
-    # 2. Update the pointplot call
+    # Mean + SE with pointplot - by condition
     g.map_dataframe(
         sns.pointplot,
         x=x_col, y=y_col,
         hue=cond_col,                    
-        #order=dynamic_x_order, 
-        hue_order=global_hue_order,    # CRITICAL: Synchronizes mapping across all facets
+        hue_order=global_hue_order,
         palette=TARGET_PALETTE,
         scale=0.8,
         estimator=np.mean,
@@ -519,7 +500,6 @@ def plot_early_late_exposure(
 
     plt.show()
     return g
-    
 
 def plot_continuous_exposure(
     data,
@@ -1012,88 +992,96 @@ def plot_density_targets(
 
 
 
-
 def plot_min_x_z(data,
+                 x_col_title,
+                 y_col_title,
                  c_col,
                  r_col,
-                 show_slopes = False,
-                 slope_array = None,
-                 target_x_array = None,
-                 hue_col = 'water_speed_binary',
-                 context='notebook',
-                 font_scale=3,
-                 save_path='../figures/baseline_trials_by_target.pdf',
+                 show_slopes=False,
+                 slope_array=None,
+                 target_x_array=None,
+                 hue_col='water_speed_binary',
+                 context='poster',      # Context set to poster
+                 font_scale=0.4,        # Drastically reduced to offset 'poster' base multiplier
+                 facet_height=4.5,      # Height in inches per subplot
+                 facet_aspect=0.8,      # Matches spatial ratio: 200cm(X) / 250cm(Z) = 0.8
+                 save_path='../figures/PCA_slopes.svg',
                  dpi=300
                 ):
 
     slope_array = np.array(slope_array, dtype=np.float64)
     target_array = np.array(target_x_array, dtype=np.float64)
+    
+    data = data.copy()
+
+    if context == 'poster':
+        data = data[data[c_col].isin(['L60', 'R60'])]
 
     if data[c_col].dtype.name == 'category':
-        data = data.copy()
         data[c_col] = data[c_col].cat.remove_unused_categories()
 
-    # set grid and make facets by target
-    g = sns.FacetGrid(data, 
-                      col=c_col,
-                      row=r_col,
-                      hue = hue_col,
-                      sharex=True, sharey=True)
+    with sns.plotting_context(context=context, font_scale=font_scale):
 
-
-
-    g.map_dataframe(sns.scatterplot,
-                    data=data,
-                    x='min_pos_from_target_x_cm', y='min_pos_from_target_z_cm',
-                    alpha=0.02
-                   )
-
-    if show_slopes == True:
-
-        assert g.axes.shape == slope_array.shape, "Check the slopes_array shape!"
-
-        rows, cols = g.axes.shape
+        g = sns.FacetGrid(data, 
+                          col=c_col,
+                          row=r_col,
+                          hue=hue_col,
+                          height=facet_height, 
+                          aspect=facet_aspect, 
+                          sharex=True, sharey=True)
         
-        for col_idx in range(cols):
-
-            for row_idx in range(rows):
-
-                ax = g.axes[row_idx, col_idx]
+        g.map_dataframe(sns.scatterplot,
+                        data=data,
+                        x='min_pos_from_target_x_cm', y='min_pos_from_target_z_cm',
+                        alpha=0.2       # Increased from 0.02 so smaller markers remain visible on posters
+                       )
     
-                slope_deg = slope_array[row_idx, col_idx]
-                target_x = target_array[col_idx]
-    
-                slope_val = np.tan(np.deg2rad(slope_deg))
-    
-                ax.axline(xy1=(target_x, 140),
-                          slope=slope_val,
-                          color='black',
-                          linestyle='--',
-                          linewidth=2,
-                          alpha=0.6)
-                ax.set_aspect('equal')
-
-
-    # Add legend
-    g.add_legend()
-
-    g.fig.set_size_inches(14, 7)   # width, height in inches
-    
-    # save figure
-    if save_path:
-        g.fig.savefig(save_path, dpi=dpi) 
+        if show_slopes == True:
+            assert g.axes.shape == slope_array.shape, f"Check shape! Axes are {g.axes.shape} but slope_array is {slope_array.shape}"
+            rows, cols = g.axes.shape
+            
+            for col_idx in range(cols):
+                for row_idx in range(rows):
+                    ax = g.axes[row_idx, col_idx]
+                    slope_deg = slope_array[row_idx, col_idx]
+                    target_x = target_array[col_idx]
+                    slope_val = np.tan(np.deg2rad(slope_deg))
         
-    # display
+                    ax.axline(xy1=(target_x, 140),
+                              slope=slope_val,
+                              color='black',
+                              linestyle='--',
+                              linewidth=2,
+                              alpha=0.6)
+                    
+                    ax.set_aspect('equal')
+    
+        # Move legend outside the plot area
+        #g.add_legend(bbox_to_anchor=(1.05, 0.5), loc='center left')
+        g.set_axis_labels(x_col_title, y_col_title)
+        
+        # Strip redundant variables from facet titles (removes "c_col = L60")
+        g.set_titles(col_template="{col_name}", row_template="{row_name}")
+        
+        # Mechanically force whitespace to prevent text collisions
+        # hspace: vertical gap between rows | wspace: horizontal gap between columns
+        g.fig.subplots_adjust(top=0.9, bottom=0.15, left=0.1, right=0.85, hspace=0.5, wspace=0.3)
+                
+        if save_path:
+            g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight') 
+
     plt.show()
 
     return g
 
 
 
+    
+
 from matplotlib.colors import TwoSlopeNorm
 from matplotlib.cm import ScalarMappable
 
-def plot_heatmap(data, x_col, y_col, colour_col, facet_col=None, facet_row=None, 
+def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet_col=None, facet_row=None, 
                  style_col=None, mode='correlation', dark=True, font_scale=1.2, 
                  show_legend=True, show_mean_line=False, mean_line_color=None): 
     
@@ -1172,7 +1160,8 @@ def plot_heatmap(data, x_col, y_col, colour_col, facet_col=None, facet_row=None,
         for ax in g.axes.flat:
             ax.set_facecolor(bg_color)
             if dark: ax.tick_params(colors=text_color)
-        
+
+        g.set_axis_labels(x_col_title, y_col_title)
         # Compress subplots to 82% figure width to prevent overlap
         plt.subplots_adjust(right=0.82, top=0.9) 
         plt.show()
