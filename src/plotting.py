@@ -11,7 +11,7 @@ import pandas as pd
 from matplotlib.colors import Normalize
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import TwoSlopeNorm, Normalize
-
+import matplotlib.lines as mlines
 
 # Global static color mapping for targets
 _colors = sns.color_palette("bright", 4)
@@ -133,8 +133,6 @@ def plot_baseline(
 
 
 
-    
-
 def plot_all_trials(
     data,
     cond_col,
@@ -157,6 +155,14 @@ def plot_all_trials(
 ):
     data = data.copy()
     data[x_col] = data[x_col].astype(float)
+
+    # --- Setup Condition Line Styles ---
+    available_linestyles = ['-', '--', ':', '-.']
+    unique_conditions = data[cond_col].dropna().unique() if cond_col in data.columns else []
+    cond_style_dict = {
+        cond: available_linestyles[i % len(available_linestyles)] 
+        for i, cond in enumerate(unique_conditions)
+    }
 
     # --- Global Statistics for SD Lines ---
     if show_sd_line:
@@ -265,45 +271,57 @@ def plot_all_trials(
     
     # Plot means on each axis
     for ax, facet_data in axes_to_plot:
+        
+        # --- UPDATE: Add cond_col to GroupBy ---
+        groupby_cols = [x_col, target_col, cond_col, '_phase_id']
         grouped = facet_data.dropna(subset=[y_col]).groupby(
-            [x_col, target_col, '_phase_id']
+            groupby_cols
         ).agg({y_col: ['mean', 'sem', 'count']}).reset_index()
         
-        grouped.columns = [x_col, target_col, '_phase_id', 'mean', 'sem', 'count']
+        grouped.columns = groupby_cols + ['mean', 'sem', 'count']
         grouped['sem'] = grouped['sem'].fillna(0)
         
         for target_label in labels:
-            target_data = grouped[grouped[target_col] == target_label].sort_values([x_col])
-            
-            # --- CRITICAL FIX: Reference global palette ---
             color = TARGET_PALETTE[target_label]
             
-            if len(target_data) > 0:
-                for phase_id in target_data['_phase_id'].unique():
-                    phase_subset = target_data[target_data['_phase_id'] == phase_id].sort_values(x_col)
-                    
-                    if len(phase_subset) > 0:
-                        ax.plot(
-                            phase_subset[x_col],
-                            phase_subset['mean'],
-                            marker='o',
-                            markersize=marker_size,
-                            linewidth=3.0,
-                            color=color,
-                            alpha=0.80
-                        )
+            # --- UPDATE: Iterate through condition categories ---
+            for cond_val in grouped[cond_col].unique():
+                current_linestyle = cond_style_dict.get(cond_val, '-')
+                
+                # Filter by both target and condition
+                target_data = grouped[
+                    (grouped[target_col] == target_label) & 
+                    (grouped[cond_col] == cond_val)
+                ].sort_values([x_col])
+                
+                if len(target_data) > 0:
+                    for phase_id in target_data['_phase_id'].unique():
+                        phase_subset = target_data[target_data['_phase_id'] == phase_id].sort_values(x_col)
                         
-                        ax.fill_between(
-                            phase_subset[x_col],
-                            phase_subset['mean'] - phase_subset['sem'],
-                            phase_subset['mean'] + phase_subset['sem'],
-                            alpha=0.25,
-                            color=color,
-                            linewidth=0
-                        )
+                        if len(phase_subset) > 0:
+                            ax.plot(
+                                phase_subset[x_col],
+                                phase_subset['mean'],
+                                marker='o',
+                                markersize=marker_size,
+                                linewidth=1.75,
+                                color=color,
+                                alpha=0.80,
+                                linestyle=current_linestyle  # <-- Applied here
+                            )
+                            
+                            ax.fill_between(
+                                phase_subset[x_col],
+                                phase_subset['mean'] - phase_subset['sem'],
+                                phase_subset['mean'] + phase_subset['sem'],
+                                alpha=0.25,
+                                color=color,
+                                linewidth=0
+                            )
 
-    g.fig.set_size_inches(24, 16)
-
+    #g.fig.set_size_inches(24, 16)
+    g.fig.set_size_inches(36 / 2.54, 12 / 2.54)
+    
     # --- AXIS TRACKING FOR LABEL RESTORATION ---
     visible_bottom_axes = {}
     visible_left_axes = {}
@@ -352,29 +370,39 @@ def plot_all_trials(
         ax.set_ylabel(y_col)
         ax.yaxis.label.set_visible(True) 
 
-    import matplotlib.lines as mlines
-
     # --- CUSTOM LEGEND CREATION ---
     handles = []
     
-    # Iterate directly over the global palette to guarantee all four targets appear
+    # 1. Target Colors
     for target_label, color in TARGET_PALETTE.items():
-        # Create a proxy artist (a line) for each target
         handle = mlines.Line2D(
             [], [], 
             color=color, 
             marker='o', 
             markersize=marker_size, 
             linewidth=3.0, 
-            label=target_label
+            linestyle='-', # Keep solid in legend for pure color reference
+            label=f"Target: {target_label}"
         )
         handles.append(handle)
 
-    # Apply the legend to the figure, fixing the title to reflect the target column
+    # 2. Condition Linestyles
+    for cond_val, l_style in cond_style_dict.items():
+        handle = mlines.Line2D(
+            [], [],
+            color='gray', # Neutral color to show style independently
+            marker='None',
+            linewidth=3.0,
+            linestyle=l_style,
+            label=f"Cond: {cond_val}"
+        )
+        handles.append(handle)
+
+    # Apply the legend
     if handles:
         g.fig.legend(
             handles=handles,
-            title=target_col.replace("_", " ").title(),
+            title="Targets & Conditions",
             loc="center left", 
             bbox_to_anchor=(0.88, 0.5), 
             frameon=True
@@ -387,7 +415,6 @@ def plot_all_trials(
 
     plt.show()
     return g
-
 
 
 
@@ -449,6 +476,8 @@ def plot_early_late_exposure(
     g.map_dataframe(
         sns.pointplot,
         x=x_col, y=y_col,
+        style=line_col,
+        dashes=[(2, 2), ''], 
         hue=cond_col,                    
         hue_order=global_hue_order,
         palette=TARGET_PALETTE,
@@ -1166,3 +1195,113 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
         plt.subplots_adjust(right=0.82, top=0.9) 
         plt.show()
         return g
+
+
+def plot_early_late_exposure_2(
+    data,
+    cond_col, # colour
+    ppid_col,
+    y_col,
+    x_col,
+    line_col, # line style
+    facet_row,
+    facet_col,
+    target_col='target_x_label',  
+    ylim=None,              
+    show_zero_line=False,
+    context='notebook',
+    font_scale=1.2,          
+    facet_height=4,          
+    facet_aspect=1.2,        
+    save_path='../figures/early_late_exposure_by_target_x_set.svg',
+    dpi=300
+):
+    sns.set_theme(context=context, font_scale=font_scale, style="white")
+    
+    data = data.copy()
+
+    g = sns.FacetGrid(
+        data,
+        col=facet_col,
+        row=facet_row,
+        height=facet_height, 
+        aspect=facet_aspect,
+        sharey=True,
+        sharex=True,
+        margin_titles=True
+    )
+
+    # Individual participant lines - colored by target
+    g.map_dataframe(
+        sns.lineplot,
+        x=x_col, y=y_col,
+        units=ppid_col,
+        hue=target_col,
+        estimator=None,
+        palette=TARGET_PALETTE,
+        alpha=0.10, 
+        linewidth=0.8,
+        legend=False
+    )
+        
+    global_hue_order = list(data[cond_col].unique())
+    
+    # Extract unique values and reverse the list 
+    reversed_style_order = list(data[line_col].dropna().unique())[::-1]
+    
+    # --- Replaced pointplot with lineplot to utilize 'style' ---
+    g.map_dataframe(
+        sns.lineplot,
+        x=x_col, y=y_col,
+        hue=cond_col,
+        style=line_col,
+        dashes=[(2, 2), ''],     # <-- Dashed first (2,2), Solid second ('')
+        hue_order=global_hue_order,
+        palette=TARGET_PALETTE,
+        estimator=np.mean,
+        errorbar='se',
+        err_style='bars',        
+        marker='o',             
+        markersize=8,
+        linewidth=2.5
+    )
+
+    if ylim is not None:
+        g.set(ylim=ylim)
+
+    # --- HIDE EMPTY FACETS & RESTORE LABELS ---
+    visible_bottom_axes = {}
+    visible_left_axes = {}
+    nrows, ncols = g.axes.shape
+
+    for i in range(nrows):
+        for j in range(ncols):
+            ax = g.axes[i, j]
+
+            if not ax.lines and not ax.collections:
+                ax.set_visible(False)
+                continue
+
+            visible_bottom_axes[j] = ax
+            if i not in visible_left_axes:
+                visible_left_axes[i] = ax
+
+            if show_zero_line:
+                ax.axhline(0.0, color='black', linestyle='--', alpha=0.3)
+
+    for ax in visible_bottom_axes.values():
+        ax.xaxis.set_tick_params(labelbottom=True)
+        ax.xaxis.label.set_visible(True) 
+        
+    for ax in visible_left_axes.values():
+        ax.yaxis.set_tick_params(labelleft=True)
+        ax.yaxis.label.set_visible(True) 
+    
+    # Adjust legend to show both color (target) and style (phase) mappings
+    g.add_legend()
+
+    if save_path:
+        g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
+
+    plt.show()
+    return g
