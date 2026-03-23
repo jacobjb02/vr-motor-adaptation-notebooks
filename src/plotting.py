@@ -133,6 +133,8 @@ def plot_baseline(
 
 
 
+
+
 def plot_all_trials(
     data,
     cond_col,
@@ -148,9 +150,9 @@ def plot_all_trials(
     x_col='trial_num_target',
     estimator='mean',
     context='notebook',
-    marker_size=4,
+    marker_size=2,
     font_scale=3,
-    save_path='../figures/exposure_trials_by_target_x_set.svg',
+    save_path='../figures/exposure_trials_by_target_x_set.png',
     dpi=300
 ):
     data = data.copy()
@@ -199,25 +201,31 @@ def plot_all_trials(
         # Close any trailing active block that reaches the end of the dataframe
         if in_inactive_block:
             inactive_spans.append((start_x, schedule_df[x_col].max()))
-
-    # --- PAD MISSING X-VALUES WITH NANS TO BREAK LINES ---
-    grouping_cols = [c for c in [ppid_col, cond_col, target_col, row_col, col_col] if c and c in data.columns]
     
-    unique_groups = data[grouping_cols].drop_duplicates().assign(_key=1)
-    unique_x = pd.DataFrame({x_col: data[x_col].dropna().unique(), '_key': 1})
-    full_grid = pd.merge(unique_groups, unique_x, on='_key').drop('_key', axis=1)
-
-    # Merge to insert rows with NaN in y_col for missing x-values
-    data = pd.merge(full_grid, data, on=grouping_cols + [x_col], how='left')
-
-    # --- CREATE PHASE/SET ORDER IDENTIFIER ---
+     # --- CREATE PHASE/SET ORDER IDENTIFIER FIRST ---
     if transition_col and transition_col in data.columns and cond_col in data.columns:
         data['_phase_id'] = data[transition_col].astype(str) + '_cond_' + data[cond_col].astype(str)
     elif transition_col and transition_col in data.columns:
         data['_phase_id'] = data[transition_col].astype(str)
     else:
         data['_phase_id'] = '0'
+    
+    # --- PAD MISSING X-VALUES WITH NANS TO BREAK LINES ---
+    grouping_cols = [c for c in [ppid_col, cond_col, target_col, row_col, col_col, '_phase_id'] if c and c in data.columns]
+    
+    unique_groups = data[grouping_cols].drop_duplicates().assign(_key=1)
+    unique_x = pd.DataFrame({x_col: data[x_col].dropna().unique(), '_key': 1})
+    full_grid = pd.merge(unique_groups, unique_x, on='_key').drop('_key', axis=1)
+    
+    # Merge to insert rows with NaN in y_col for missing x-values
+    data = pd.merge(full_grid, data, on=grouping_cols + [x_col], how='left')
+    
+    # CREATE COMPOSITE UNITS COLUMN AFTER THE MERGE
+    data['_units_composite'] = data[ppid_col].astype(str) + '_' + data['_phase_id'].astype(str)
 
+    # FILL NaN values in _units_composite for padded rows
+    data['_units_composite'] = data.groupby(grouping_cols)['_units_composite'].transform(lambda x: x.ffill().bfill())
+    
     # --- Categorical Assignment and Plotting Setup ---
     labels = sorted(data[target_col].dropna().unique(), key=str)
     data[target_col] = pd.Categorical(data[target_col], categories=labels, ordered=True)
@@ -236,15 +244,23 @@ def plot_all_trials(
     g.set(ylim=y_lim)
 
     # 1. Plot individual participant traces
-    g.map_dataframe(
-        sns.lineplot,
-        x=x_col, y=y_col,
-        units=ppid_col, estimator=None,
-        hue=target_col,
-        palette=TARGET_PALETTE,
-        alpha=0.05, legend=False
-    )
-
+    for ax in g.axes.flat:
+        for unit in data['_units_composite'].unique():
+            if pd.isna(unit):
+                continue
+            unit_data = data[data['_units_composite'] == unit].sort_values(x_col)
+            
+            # Split by NaN gaps
+            for target in unit_data[target_col].unique():
+                target_unit = unit_data[unit_data[target_col] == target]
+                color = TARGET_PALETTE.get(target, 'gray')
+                
+                # Plot only non-NaN segments
+                mask = target_unit[y_col].notna()
+                if mask.any():
+                    ax.plot(target_unit[mask][x_col], target_unit[mask][y_col],
+                           color=color, alpha=0.05, linewidth=0.5)
+                    
     # 2. Plot Mean + SE separately per phase to prevent cross-phase connections
     axes_to_plot = []
     
@@ -320,7 +336,9 @@ def plot_all_trials(
                             )
 
     #g.fig.set_size_inches(24, 16)
-    g.fig.set_size_inches(36 / 2.54, 12 / 2.54)
+    #g.fig.set_size_inches(36 / 2.54, 12 / 2.54)
+    g.fig.set_size_inches(24, 16)
+
     
     # --- AXIS TRACKING FOR LABEL RESTORATION ---
     visible_bottom_axes = {}
@@ -419,7 +437,8 @@ def plot_all_trials(
 
 
 
-    
+
+
 
 # early late exposure
 def plot_early_late_exposure(
@@ -431,14 +450,14 @@ def plot_early_late_exposure(
     line_col,
     facet_row,
     facet_col,
-    target_col='target_x_label',  # NEW: column for target
+    target_col='target_x_label',  
     ylim=None,              
     show_zero_line=False,
     context='notebook',
     font_scale=1.2,          
     facet_height=4,          
     facet_aspect=1.2,        
-    save_path='../figures/early_late_exposure_by_target_x_set.svg',
+    save_path='../figures/early_late_exposure_by_target_x_set.png',
     dpi=300
 ):
     sns.set_theme(context=context, font_scale=font_scale, style="white")
@@ -476,8 +495,6 @@ def plot_early_late_exposure(
     g.map_dataframe(
         sns.pointplot,
         x=x_col, y=y_col,
-        style=line_col,
-        dashes=[(2, 2), ''], 
         hue=cond_col,                    
         hue_order=global_hue_order,
         palette=TARGET_PALETTE,
@@ -529,6 +546,7 @@ def plot_early_late_exposure(
 
     plt.show()
     return g
+    
 
 def plot_continuous_exposure(
     data,
@@ -1109,7 +1127,6 @@ def plot_min_x_z(data,
 
 from matplotlib.colors import TwoSlopeNorm
 from matplotlib.cm import ScalarMappable
-
 def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet_col=None, facet_row=None, 
                  style_col=None, mode='correlation', dark=True, font_scale=1.2, 
                  show_legend=True, show_mean_line=False, mean_line_color=None): 
@@ -1119,7 +1136,7 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
     # Ensure numerical consistency for the heat map
     data[colour_col] = pd.to_numeric(data[colour_col], errors='coerce')
     
-    palette = 'icefire' if dark else 'RdBu_r' 
+    palette = 'plasma'
     bg_color, text_color = ("black", "white") if dark else ("white", "black")
     
     if mean_line_color is None:
@@ -1144,6 +1161,20 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
         )
         g.fig.set_facecolor(bg_color)
         
+        # Explicitly apply viridis colormap to scatter points
+        cmap = plt.cm.get_cmap('plasma')
+        for ax in g.axes.flat:
+            collections = ax.collections
+            for collection in collections:
+                if hasattr(collection, 'get_offsets'):  # Check if it's a PathCollection (scatter)
+                    offsets = collection.get_offsets()
+                    if len(offsets) > 0:
+                        # Get the color values from the data
+                        color_values = data.loc[data.index[:len(offsets)], colour_col].values
+                        normalized_colors = norm(color_values)
+                        colors = cmap(normalized_colors)
+                        collection.set_color(colors)
+        
         # Mean Overlay Logic
         if show_mean_line:
             if mean_line_color in data.columns:
@@ -1151,7 +1182,7 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
                     sns.lineplot, x=x_col, y=y_col, 
                     style=style_col, 
                     hue=mean_line_color, 
-                    palette='viridis', 
+                    palette='plasma', 
                     linewidth=3, errorbar=None, zorder=10
                 )
             else:
@@ -1162,9 +1193,8 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
                 )
         
         # Colorbar Handling
-        sm = ScalarMappable(cmap=palette, norm=norm)
+        sm = ScalarMappable(cmap="plasma", norm=norm)
         sm.set_array([])
-        # Placed at 0.85 to leave room for the legend on the right
         cbar_ax = g.fig.add_axes([0.85, 0.2, 0.02, 0.6]) 
         cbar = g.fig.colorbar(sm, cax=cbar_ax)
         cbar.set_label(colour_col, color=text_color)
@@ -1181,7 +1211,6 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
                         unique_labels[l] = h
             
             if unique_labels:
-                # Placed at 0.92, to the right of the colorbar
                 g.fig.legend(unique_labels.values(), unique_labels.keys(), 
                              loc='center left', bbox_to_anchor=(0.92, 0.5), 
                              fontsize='small', title="Factors")
@@ -1191,7 +1220,6 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
             if dark: ax.tick_params(colors=text_color)
 
         g.set_axis_labels(x_col_title, y_col_title)
-        # Compress subplots to 82% figure width to prevent overlap
         plt.subplots_adjust(right=0.82, top=0.9) 
         plt.show()
         return g

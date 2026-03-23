@@ -185,3 +185,28 @@ def remove_baseline_outlier_trials_threshold_sd(data,
     cleaned_data = data.drop(index=indices_to_drop).copy()
     
     return cleaned_data
+
+
+def remove_outliers_per_trial(data, y_col, trial_col, water_col, target_col, sd_error_threshold=3.0):
+
+    # Calculate mean and sd FOR EACH TRIAL across the dataset
+    trial_means = data.groupby([trial_col, water_col, target_col])[y_col].transform('mean')
+    trial_sds = data.groupby([trial_col, water_col, target_col])[y_col].transform('std')
+    
+    # Calculate absolute deviation from the trial-specific mean
+    deviation = np.abs(data[y_col] - trial_means)
+    
+    # Define mask: True if deviation exceeds the trial's specific threshold
+    is_outlier = deviation > (sd_error_threshold * trial_sds)
+    
+    # Logging
+    outlier_count = is_outlier.sum()
+    total_trials = len(data)
+    print(f"--- Trial-by-Trial Outlier Removal ({y_col}) ---")
+    print(f"SD Threshold: {sd_error_threshold}")
+    print(f"Trials removed: {outlier_count} / {total_trials} total rows")
+    
+    # Return cleaned dataframe
+    cleaned_data = data[~is_outlier].copy()
+    
+    return cleaned_data
