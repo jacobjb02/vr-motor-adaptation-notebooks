@@ -19,7 +19,7 @@ def filter_for_phase(
     selected_phase['phase_trial_target'] = selected_phase.groupby(['ppid', 'target_x_label']).cumcount() + 1
 
     if block == True:
-        selected_phase.groupby(['pp'phase', 'phase_trial_target'])
+        selected_phase.groupby(['pp'phase', 'phase_trial_target']) # bug?
     
     return selected_phase
 

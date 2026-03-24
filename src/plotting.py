@@ -1127,23 +1127,33 @@ def plot_min_x_z(data,
 
 from matplotlib.colors import TwoSlopeNorm
 from matplotlib.cm import ScalarMappable
+
 def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet_col=None, facet_row=None, 
                  style_col=None, mode='correlation', dark=True, font_scale=1.2, 
-                 show_legend=True, show_mean_line=False, mean_line_color=None): 
+                 show_legend=True, show_mean_line=False, mean_line_color=None, 
+                 colour_type='auto', palette='plasma'): 
+
+    data = data.copy().reset_index(drop=True)
     
-    data = data.copy().reset_index()
+    # Drop rows with NaN in critical columns
+    data = data.dropna(subset=[x_col, y_col, colour_col])
+    if facet_col is not None:
+        data = data.dropna(subset=[facet_col])
+    if facet_row is not None:
+        data = data.dropna(subset=[facet_row])
     
-    # Ensure numerical consistency for the heat map
-    data[colour_col] = pd.to_numeric(data[colour_col], errors='coerce')
+    # Detect colour_type if auto
+    if colour_type == 'auto':
+        try:
+            pd.to_numeric(data[colour_col], errors='raise')
+            colour_type = 'continuous'
+        except (ValueError, TypeError):
+            colour_type = 'categorical'
     
-    palette = 'plasma'
     bg_color, text_color = ("black", "white") if dark else ("white", "black")
     
     if mean_line_color is None:
         mean_line_color = "white" if dark else "black"
-
-    v_min, v_max = data[colour_col].min(), data[colour_col].max()
-    norm = TwoSlopeNorm(vcenter=0.0, vmin=v_min, vmax=v_max) if v_min < 0 and v_max > 0 else plt.Normalize(vmin=v_min, vmax=v_max)
 
     sns.set_context("notebook", font_scale=font_scale)
 
@@ -1152,37 +1162,66 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
         "grid.color": "#333333" if dark else "#DDDDDD", "text.color": text_color,
         "axes.labelcolor": text_color, "xtick.color": text_color, "ytick.color": text_color
     }):
-        # Primary Scatter Plot
-        g = sns.relplot(
-            data=data, x=x_col, y=y_col, hue=colour_col, 
-            style=style_col, col=facet_col, row=facet_row,
-            palette=palette, hue_norm=norm, alpha=0.4, kind='scatter', 
-            height=5, aspect=1.0, facet_kws={'margin_titles': True}
-        )
-        g.fig.set_facecolor(bg_color)
         
-        # Explicitly apply viridis colormap to scatter points
-        cmap = plt.cm.get_cmap('plasma')
-        for ax in g.axes.flat:
-            collections = ax.collections
-            for collection in collections:
-                if hasattr(collection, 'get_offsets'):  # Check if it's a PathCollection (scatter)
+        if colour_type == 'continuous':
+            # ============= CONTINUOUS COLOR MAPPING =============
+            data[colour_col] = pd.to_numeric(data[colour_col], errors='coerce')
+            
+            v_min, v_max = data[colour_col].min(), data[colour_col].max()
+            norm = TwoSlopeNorm(vcenter=0.0, vmin=v_min, vmax=v_max) if v_min < 0 and v_max > 0 else plt.Normalize(vmin=v_min, vmax=v_max)
+            
+            # Create plot without hue to avoid _hue error
+            g = sns.relplot(
+                data=data, x=x_col, y=y_col,
+                style=style_col, col=facet_col, row=facet_row,
+                alpha=0.6, kind='scatter', 
+                height=5, aspect=1.0, facet_kws={'margin_titles': True}
+            )
+            g.fig.set_facecolor(bg_color)
+            
+            # Manually apply continuous colormap
+            cmap = plt.cm.get_cmap(palette)
+            for ax in g.axes.flat:
+                collections = [c for c in ax.collections if hasattr(c, 'get_offsets')]
+                
+                if len(collections) > 0:
+                    collection = collections[0]
                     offsets = collection.get_offsets()
+                    
                     if len(offsets) > 0:
-                        # Get the color values from the data
-                        color_values = data.loc[data.index[:len(offsets)], colour_col].values
-                        normalized_colors = norm(color_values)
-                        colors = cmap(normalized_colors)
-                        collection.set_color(colors)
+                        color_values = data[colour_col].values[:len(offsets)]
+                        if len(color_values) > 0:
+                            normalized_colors = norm(color_values)
+                            colors = cmap(normalized_colors)
+                            collection.set_color(colors)
+            
+            # Colorbar for continuous data
+            sm = ScalarMappable(cmap=palette, norm=norm)
+            sm.set_array([])
+            cbar_ax = g.fig.add_axes([0.85, 0.2, 0.02, 0.6])
+            cbar = g.fig.colorbar(sm, cax=cbar_ax)
+            cbar.set_label(colour_col, color=text_color)
+            cbar.ax.tick_params(colors=text_color)
+        
+        else:
+            # ============= CATEGORICAL COLOR MAPPING =============
+            # Use hue for categorical data (works well with seaborn)
+            g = sns.relplot(
+                data=data, x=x_col, y=y_col, hue=colour_col,
+                style=style_col, col=facet_col, row=facet_row,
+                palette=palette, alpha=0.3, kind='scatter',
+                height=5, aspect=1.0, facet_kws={'margin_titles': True}
+            )
+            g.fig.set_facecolor(bg_color)
         
         # Mean Overlay Logic
         if show_mean_line:
-            if mean_line_color in data.columns:
+            if isinstance(mean_line_color, str) and mean_line_color in data.columns:
                 g.map_dataframe(
                     sns.lineplot, x=x_col, y=y_col, 
                     style=style_col, 
                     hue=mean_line_color, 
-                    palette='plasma', 
+                    palette='Set2', 
                     linewidth=3, errorbar=None, zorder=10
                 )
             else:
@@ -1192,17 +1231,11 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
                     linewidth=3, errorbar=None, zorder=10
                 )
         
-        # Colorbar Handling
-        sm = ScalarMappable(cmap="plasma", norm=norm)
-        sm.set_array([])
-        cbar_ax = g.fig.add_axes([0.85, 0.2, 0.02, 0.6]) 
-        cbar = g.fig.colorbar(sm, cax=cbar_ax)
-        cbar.set_label(colour_col, color=text_color)
+        # Legend Handling
+        if g._legend:
+            g._legend.remove()
         
-        if g._legend: g._legend.remove()
-        
-        # Robust Legend Handling across all facets
-        if show_legend:
+        if show_legend and colour_type == 'categorical':
             unique_labels = {}
             for ax in g.axes.flat:
                 handles, labels = ax.get_legend_handles_labels()
@@ -1213,17 +1246,19 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
             if unique_labels:
                 g.fig.legend(unique_labels.values(), unique_labels.keys(), 
                              loc='center left', bbox_to_anchor=(0.92, 0.5), 
-                             fontsize='small', title="Factors")
+                             fontsize='small', title=colour_col)
         
+        # Styling
         for ax in g.axes.flat:
             ax.set_facecolor(bg_color)
-            if dark: ax.tick_params(colors=text_color)
-
+            if dark:
+                ax.tick_params(colors=text_color)
+        
         g.set_axis_labels(x_col_title, y_col_title)
-        plt.subplots_adjust(right=0.82, top=0.9) 
+        plt.subplots_adjust(right=0.82, top=0.9)
         plt.show()
+        
         return g
-
 
 def plot_early_late_exposure_2(
     data,
