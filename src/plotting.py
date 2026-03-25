@@ -152,7 +152,7 @@ def plot_all_trials(
     context='notebook',
     marker_size=2,
     font_scale=3,
-    save_path='../figures/exposure_trials_by_target_x_set.png',
+    save_path='../figures/exposure_trials_by_target_x_set.svg',
     dpi=300
 ):
     data = data.copy()
@@ -1260,74 +1260,181 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
         
         return g
 
-def plot_early_late_exposure_2(
+
+
+
+def plot_early_late_exposure_with_slopes(
     data,
-    cond_col, # colour
+    cond_col,      # colour
     ppid_col,
     y_col,
     x_col,
-    line_col, # line style
+    line_col,
     facet_row,
     facet_col,
-    target_col='target_x_label',  
-    ylim=None,              
+    target_col='target_x_label',
+    ylim=None,
     show_zero_line=False,
     context='notebook',
-    font_scale=1.2,          
-    facet_height=4,          
-    facet_aspect=1.2,        
-    save_path='../figures/early_late_exposure_by_target_x_set.svg',
+    font_scale=1.2,
+    facet_height=4,
+    facet_aspect=1.2,
+    jitter_amount=0.035,    # control jitter width
+    slope_offset=0.035,     # gap between points and slope lines
+    save_path='../figures/early_late_exposure_by_target_x_set_slopes.png',
     dpi=300
 ):
+    
     sns.set_theme(context=context, font_scale=font_scale, style="white")
     
     data = data.copy()
+    
+    # Create numeric positions for categorical x_col
+    unique_x_cats = sorted(data[x_col].dropna().unique())
+    x_cat_to_numeric = {cat: i for i, cat in enumerate(unique_x_cats)}
+    data['_x_numeric'] = data[x_col].map(x_cat_to_numeric)
 
     g = sns.FacetGrid(
         data,
         col=facet_col,
         row=facet_row,
-        height=facet_height, 
+        height=facet_height,
         aspect=facet_aspect,
         sharey=True,
         sharex=True,
         margin_titles=True
     )
 
-    # Individual participant lines - colored by target
-    g.map_dataframe(
-        sns.lineplot,
-        x=x_col, y=y_col,
-        units=ppid_col,
-        hue=target_col,
-        estimator=None,
-        palette=TARGET_PALETTE,
-        alpha=0.10, 
-        linewidth=0.8,
-        legend=False
-    )
-        
-    global_hue_order = list(data[cond_col].unique())
+    # --- JITTERED INDIVIDUAL POINTS BY TARGET (colored by target) ---
+    for ax in g.axes.flat:
+        for target_val in data[target_col].dropna().unique():
+            target_data = data[data[target_col] == target_val].dropna(subset=[x_col, y_col, '_x_numeric'])
+            
+            if len(target_data) == 0:
+                continue
+            
+            color = TARGET_PALETTE.get(target_val, 'gray')
+            
+            # Jitter the numeric x positions while keeping real y values
+            x_jittered = target_data['_x_numeric'].values + np.random.normal(0, jitter_amount, len(target_data))
+            
+            ax.scatter(
+                x_jittered,
+                target_data[y_col].values,
+                color=color,
+                alpha=0.15,
+                s=20,
+                zorder=1
+            )
+
+    # --- REGRESSION SLOPES WITH CI (by condition, PER FACET) ---
+    from scipy import stats
     
-    # Extract unique values and reverse the list 
-    reversed_style_order = list(data[line_col].dropna().unique())[::-1]
+    global_hue_order = list(data[cond_col].dropna().unique())
     
-    # --- Replaced pointplot with lineplot to utilize 'style' ---
-    g.map_dataframe(
-        sns.lineplot,
-        x=x_col, y=y_col,
-        hue=cond_col,
-        style=line_col,
-        dashes=[(2, 2), ''],     # <-- Dashed first (2,2), Solid second ('')
-        hue_order=global_hue_order,
-        palette=TARGET_PALETTE,
-        estimator=np.mean,
-        errorbar='se',
-        err_style='bars',        
-        marker='o',             
-        markersize=8,
-        linewidth=2.5
-    )
+    # Get facet coordinates to match axes
+    if facet_row or facet_col:
+        for facet_key, ax in g.axes_dict.items():
+            if not ax.get_visible():
+                continue
+            
+            # Extract facet values
+            if isinstance(facet_key, tuple):
+                row_val, col_val = facet_key
+            else:
+                row_val = facet_key
+                col_val = None
+            
+            # Filter data for this facet
+            facet_data = data.copy()
+            if facet_row and facet_row in data.columns:
+                facet_data = facet_data[facet_data[facet_row] == row_val]
+            if facet_col and facet_col in data.columns:
+                facet_data = facet_data[facet_data[facet_col] == col_val]
+            
+            # Check if facet has any valid data
+            facet_data_valid = facet_data.dropna(subset=[y_col, '_x_numeric'])
+            if len(facet_data_valid) == 0:
+                ax.set_visible(False)
+                continue
+            
+            # Now compute slopes for each condition using FACET-SPECIFIC data
+            for cond_val in global_hue_order:
+                cond_data = facet_data[facet_data[cond_col] == cond_val].dropna(subset=[y_col, '_x_numeric'])
+                
+                if len(cond_data) < 2:
+                    continue
+                
+                color = 'gray'
+                
+                # Perform linear regression on numeric x positions
+                slope, intercept, r_value, p_value, std_err = stats.linregress(
+                    cond_data['_x_numeric'].values,
+                    cond_data[y_col].values
+                )
+                
+                # Generate x range for plotting (with gap offset)
+                x_min = cond_data['_x_numeric'].min() + slope_offset
+                x_max = cond_data['_x_numeric'].max() + slope_offset
+                x_line = np.array([x_min, x_max])
+                y_line = slope * x_line + intercept
+                
+                # Calculate prediction interval (95% CI)
+                y_pred = slope * cond_data['_x_numeric'].values + intercept
+                residuals = cond_data[y_col].values - y_pred
+                residual_std_err = np.sqrt(np.sum(residuals**2) / (len(cond_data) - 2))
+                
+                # Standard error for prediction
+                n = len(cond_data)
+                x_mean = cond_data['_x_numeric'].mean()
+                sxx = np.sum((cond_data['_x_numeric'].values - x_mean)**2)
+                se_pred = residual_std_err * np.sqrt(1/n + (x_line - x_mean)**2 / sxx)
+                
+                # 95% CI
+                ci_factor = 1.96
+                y_upper = slope * x_line + intercept + ci_factor * se_pred
+                y_lower = slope * x_line + intercept - ci_factor * se_pred
+                
+                # Plot slope line
+                ax.plot(x_line, y_line, color=color, linewidth=2.5, alpha=0.8, zorder=10)
+                
+                # Plot CI band
+                ax.fill_between(x_line, y_lower, y_upper, color=color, alpha=0.2, zorder=9)
+    else:
+        # Single plot (no faceting)
+        for cond_val in global_hue_order:
+            cond_data = data[data[cond_col] == cond_val].dropna(subset=[y_col, '_x_numeric'])
+            
+            if len(cond_data) < 2:
+                continue
+            
+            color = 'gray'
+            
+            slope, intercept, r_value, p_value, std_err = stats.linregress(
+                cond_data['_x_numeric'].values,
+                cond_data[y_col].values
+            )
+            
+            x_min = cond_data['_x_numeric'].min() + slope_offset
+            x_max = cond_data['_x_numeric'].max() + slope_offset
+            x_line = np.array([x_min, x_max])
+            y_line = slope * x_line + intercept
+            
+            y_pred = slope * cond_data['_x_numeric'].values + intercept
+            residuals = cond_data[y_col].values - y_pred
+            residual_std_err = np.sqrt(np.sum(residuals**2) / (len(cond_data) - 2))
+            
+            n = len(cond_data)
+            x_mean = cond_data['_x_numeric'].mean()
+            sxx = np.sum((cond_data['_x_numeric'].values - x_mean)**2)
+            se_pred = residual_std_err * np.sqrt(1/n + (x_line - x_mean)**2 / sxx)
+            
+            ci_factor = 1.96
+            y_upper = slope * x_line + intercept + ci_factor * se_pred
+            y_lower = slope * x_line + intercept - ci_factor * se_pred
+            
+            g.ax.plot(x_line, y_line, color=color, linewidth=2.5, alpha=0.8, zorder=10)
+            g.ax.fill_between(x_line, y_lower, y_upper, color=color, alpha=0.2, zorder=9)
 
     if ylim is not None:
         g.set(ylim=ylim)
@@ -1341,7 +1448,8 @@ def plot_early_late_exposure_2(
         for j in range(ncols):
             ax = g.axes[i, j]
 
-            if not ax.lines and not ax.collections:
+            # Hide if no data and no lines/collections
+            if not ax.collections and not ax.lines:
                 ax.set_visible(False)
                 continue
 
@@ -1352,16 +1460,318 @@ def plot_early_late_exposure_2(
             if show_zero_line:
                 ax.axhline(0.0, color='black', linestyle='--', alpha=0.3)
 
+    # Restore X and Y labels/ticks on the new boundary axes
     for ax in visible_bottom_axes.values():
         ax.xaxis.set_tick_params(labelbottom=True)
-        ax.xaxis.label.set_visible(True) 
-        
+        ax.xaxis.label.set_visible(True)
+
     for ax in visible_left_axes.values():
         ax.yaxis.set_tick_params(labelleft=True)
-        ax.yaxis.label.set_visible(True) 
+        ax.yaxis.label.set_visible(True)
+
+    # --- SET X-AXIS TICKS TO CATEGORY LABELS ---
+    for ax in visible_bottom_axes.values():
+        ax.set_xticks(range(len(unique_x_cats)))
+        ax.set_xticklabels(unique_x_cats)
+
+    # --- CUSTOM LEGEND ---
+    handles = []
     
-    # Adjust legend to show both color (target) and style (phase) mappings
-    g.add_legend()
+    # Target colors
+    for target_label, color in TARGET_PALETTE.items():
+        handle = mlines.Line2D(
+            [], [],
+            color=color,
+            marker='o',
+            markersize=6,
+            linewidth=0,
+            label=f"Target: {target_label}"
+        )
+        handles.append(handle)
+    
+    # Condition line (gray for slopes)
+    handle = mlines.Line2D(
+        [], [],
+        color='gray',
+        linewidth=2.5,
+        label="Slope (by condition)"
+    )
+    handles.append(handle)
+
+    if handles:
+        g.fig.legend(
+            handles=handles,
+            title=cond_col,
+            loc="center left",
+            bbox_to_anchor=(0.92, 0.5),
+            frameon=True
+        )
+
+    if save_path:
+        g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
+
+    plt.show()
+    return g
+
+
+def plot_violin_with_slopes(
+    data,
+    cond_col,      # colour for violins
+    ppid_col,
+    y_col,
+    x_col,
+    facet_row,
+    facet_col,
+    target_col='target_x_label',
+    ylim=None,
+    show_zero_line=False,
+    context='notebook',
+    font_scale=1.2,
+    facet_height=4,
+    facet_aspect=1.2,
+    slope_x_buffer=0.5,    # NEW: extends slope line beyond data range
+    facet_row_order=None,
+    facet_col_order=None,
+    save_path='../figures/violin_with_slopes.png',
+    dpi=300
+):
+    
+    sns.set_theme(context=context, font_scale=font_scale, style="white")
+    
+    data = data.copy()
+    
+    # Create numeric positions for categorical x_col
+    unique_x_cats = sorted(data[x_col].dropna().unique())
+    x_cat_to_numeric = {cat: i for i, cat in enumerate(unique_x_cats)}
+    data['_x_numeric'] = data[x_col].map(x_cat_to_numeric).astype(float)
+
+    # Set default order if not provided
+    if facet_row_order is None and facet_row:
+        facet_row_order = sorted(data[facet_row].dropna().unique())
+    if facet_col_order is None and facet_col:
+        facet_col_order = sorted(data[facet_col].dropna().unique())
+
+    g = sns.FacetGrid(
+        data,
+        col=facet_col,
+        row=facet_row,
+        col_order=facet_col_order,
+        row_order=facet_row_order,
+        height=facet_height,
+        aspect=facet_aspect,
+        sharey=True,
+        sharex=True,
+        margin_titles=True
+    )
+
+    # --- VIOLIN PLOTS (colored by condition) ---
+    g.map_dataframe(
+        sns.violinplot,
+        x=x_col,
+        y=y_col,
+        hue=cond_col,
+        palette=TARGET_PALETTE,
+        inner='quartile',
+        alpha=0.15,
+        cut=0,
+        linewidth=1.5
+    )
+
+    # Individual data points
+    g.map_dataframe(
+        sns.stripplot,
+        x=x_col,
+        y=y_col,
+        hue=cond_col,
+        palette=TARGET_PALETTE,
+        size=3,
+        alpha=0.3,
+        dodge=True
+    )
+
+    # --- REGRESSION SLOPES WITH CI (by condition, PER FACET) ---
+    from scipy import stats
+    
+    global_hue_order = sorted(list(data[cond_col].dropna().unique()), key=str)
+    
+    # Get facet coordinates to match axes
+    if facet_row or facet_col:
+        for facet_key, ax in g.axes_dict.items():
+            if not ax.get_visible():
+                continue
+            
+            # Extract facet values
+            if isinstance(facet_key, tuple):
+                row_val, col_val = facet_key
+            else:
+                row_val = facet_key
+                col_val = None
+            
+            # Filter data for this facet
+            facet_data = data.copy()
+            if facet_row and facet_row in data.columns:
+                facet_data = facet_data[facet_data[facet_row] == row_val]
+            if facet_col and facet_col in data.columns:
+                facet_data = facet_data[facet_data[facet_col] == col_val]
+            
+            # Check if facet has any valid data
+            facet_data_valid = facet_data.dropna(subset=[y_col, '_x_numeric'])
+            if len(facet_data_valid) == 0:
+                ax.set_visible(False)
+                continue
+            
+            # Check if all x_col categories are present in this facet
+            facet_x_cats = sorted(facet_data[x_col].dropna().unique())
+            if facet_x_cats != unique_x_cats:
+                # Missing x categories in this facet
+                ax.set_visible(False)
+                continue
+            
+            # Compute slopes for each condition using FACET-SPECIFIC data
+            for cond_val in global_hue_order:
+                cond_data = facet_data[facet_data[cond_col] == cond_val].dropna(subset=[y_col, '_x_numeric'])
+                
+                if len(cond_data) < 2:
+                    continue
+                
+                # Get color for this condition from TARGET_PALETTE
+                color = TARGET_PALETTE.get(cond_val, 'gray')
+                
+                # Perform linear regression on numeric x positions
+                slope, intercept, r_value, p_value, std_err = stats.linregress(
+                    cond_data['_x_numeric'].values,
+                    cond_data[y_col].values
+                )
+                
+                # Extend slope line BEYOND the data range with buffer
+                x_min = cond_data['_x_numeric'].min() - slope_x_buffer
+                x_max = cond_data['_x_numeric'].max() + slope_x_buffer
+                x_line = np.array([x_min, x_max])
+                y_line = slope * x_line + intercept
+                
+                # Calculate prediction interval (95% CI)
+                y_pred = slope * cond_data['_x_numeric'].values + intercept
+                residuals = cond_data[y_col].values - y_pred
+                
+                if len(cond_data) > 2:
+                    residual_std_err = np.sqrt(np.sum(residuals**2) / (len(cond_data) - 2))
+                else:
+                    residual_std_err = np.std(residuals)
+                
+                # Standard error for prediction
+                n = len(cond_data)
+                x_mean = cond_data['_x_numeric'].mean()
+                sxx = np.sum((cond_data['_x_numeric'].values - x_mean)**2)
+                
+                if sxx > 0:
+                    se_pred = residual_std_err * np.sqrt(1/n + (x_line - x_mean)**2 / sxx)
+                else:
+                    se_pred = np.array([residual_std_err, residual_std_err])
+                
+                # 95% CI
+                ci_factor = 1.96
+                y_upper = slope * x_line + intercept + ci_factor * se_pred
+                y_lower = slope * x_line + intercept - ci_factor * se_pred
+                
+                # Plot slope line with condition color - thicker and more opaque
+                ax.plot(x_line, y_line, color=color, linewidth=3, alpha=1.0, zorder=10, solid_capstyle='round')
+                
+                # Plot CI band with condition color - lighter shade
+                ax.fill_between(x_line, y_lower, y_upper, color=color, alpha=0.25, zorder=9)
+    else:
+        # Single plot (no faceting)
+        for cond_val in global_hue_order:
+            cond_data = data[data[cond_col] == cond_val].dropna(subset=[y_col, '_x_numeric'])
+            
+            if len(cond_data) < 2:
+                continue
+            
+            color = TARGET_PALETTE.get(cond_val, 'gray')
+            
+            slope, intercept, r_value, p_value, std_err = stats.linregress(
+                cond_data['_x_numeric'].values,
+                cond_data[y_col].values
+            )
+            
+            x_min = cond_data['_x_numeric'].min() - slope_x_buffer
+            x_max = cond_data['_x_numeric'].max() + slope_x_buffer
+            x_line = np.array([x_min, x_max])
+            y_line = slope * x_line + intercept
+            
+            y_pred = slope * cond_data['_x_numeric'].values + intercept
+            residuals = cond_data[y_col].values - y_pred
+            residual_std_err = np.sqrt(np.sum(residuals**2) / (len(cond_data) - 2))
+            
+            n = len(cond_data)
+            x_mean = cond_data['_x_numeric'].mean()
+            sxx = np.sum((cond_data['_x_numeric'].values - x_mean)**2)
+            se_pred = residual_std_err * np.sqrt(1/n + (x_line - x_mean)**2 / sxx)
+            
+            ci_factor = 1.96
+            y_upper = slope * x_line + intercept + ci_factor * se_pred
+            y_lower = slope * x_line + intercept - ci_factor * se_pred
+            
+            g.ax.plot(x_line, y_line, color=color, linewidth=3, alpha=1.0, zorder=10, solid_capstyle='round')
+            g.ax.fill_between(x_line, y_lower, y_upper, color=color, alpha=0.25, zorder=9)
+
+    if ylim is not None:
+        g.set(ylim=ylim)
+
+    # --- HIDE EMPTY FACETS & RESTORE LABELS ---
+    visible_bottom_axes = {}
+    visible_left_axes = {}
+    nrows, ncols = g.axes.shape
+
+    for i in range(nrows):
+        for j in range(ncols):
+            ax = g.axes[i, j]
+
+            # Hide if no data and no lines/collections
+            if not ax.collections and not ax.lines:
+                ax.set_visible(False)
+                continue
+
+            visible_bottom_axes[j] = ax
+            if i not in visible_left_axes:
+                visible_left_axes[i] = ax
+
+            if show_zero_line:
+                ax.axhline(0.0, color='black', linestyle='--', alpha=0.3, linewidth=1.5)
+
+    # Restore X and Y labels/ticks on the new boundary axes
+    for ax in visible_bottom_axes.values():
+        ax.xaxis.set_tick_params(labelbottom=True)
+        ax.xaxis.label.set_visible(True)
+
+    for ax in visible_left_axes.values():
+        ax.yaxis.set_tick_params(labelleft=True)
+        ax.yaxis.label.set_visible(True)
+
+    # --- CUSTOM LEGEND ---
+    handles = []
+    
+    # Condition colors
+    for cond_label in global_hue_order:
+        color = TARGET_PALETTE.get(cond_label, 'gray')
+        handle = mlines.Line2D(
+            [], [],
+            color=color,
+            linewidth=3,
+            label=cond_label
+        )
+        handles.append(handle)
+
+    if handles:
+        g.fig.legend(
+            handles=handles,
+            title=cond_col,
+            loc="center left",
+            bbox_to_anchor=(0.92, 0.5),
+            frameon=True,
+            fontsize='medium'
+        )
+
+    g.fig.subplots_adjust(right=0.85)
 
     if save_path:
         g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
