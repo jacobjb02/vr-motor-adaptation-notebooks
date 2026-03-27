@@ -424,14 +424,6 @@ def plot_all_trials(
     return g
 
 
-import numpy as np
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib.lines as mlines
-import matplotlib.ticker as ticker
-
-
 def plot_all_trials_scatter_with_slope(
     data,
     cond_col,

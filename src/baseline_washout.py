@@ -8,7 +8,8 @@ def retain_baseline_washout(data,
                            experiment_col = 'experiment',
                            water_col = 'water_speed_binary',
                            trial_col = 'phase_trial_num', 
-                           target_col = 'target_x_label'):  
+                           target_col = 'target_x_label',
+                           trial_counter=False):  
 
     data_baseline_washout = data[data[phase_col].isin(phases_to_keep)].copy()
     data_baseline_washout_still = data_baseline_washout[data_baseline_washout[water_col] < 1.0] 
@@ -31,6 +32,11 @@ def retain_baseline_washout(data,
     exp_tags = "_".join(unique_exps[:2]) 
     if len(unique_exps) > 2:
         exp_tags += "_etc"
+
+    if trial_counter == True:
+        grouping_vars = ['target_x_label', 'ppid_full', 'phase']
+        data_baseline_washout_still['washout_target_trial_num'] = data_baseline_washout_still.groupby(grouping_vars).cumcount() + 1
+
         
     # Extract unique water speeds from filtered data
     speeds = data_baseline_washout_still[water_col].unique() 
