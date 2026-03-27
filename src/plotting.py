@@ -424,6 +424,254 @@ def plot_all_trials(
     return g
 
 
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
+import matplotlib.ticker as ticker
+
+
+def plot_all_trials_scatter_with_slope(
+    data,
+    cond_col,
+    ppid_col,
+    row_col,
+    col_col,
+    target_col,
+    y_col='baseline_corrected_dist',
+    x_col='trial_num_target',
+    hit_col=None,          # optional: e.g., 'hit'
+    ref_range_col=None,    # optional: e.g., target metric used for hit range
+    transition_col=None,
+    no_connect_col=None,
+    show_zero_line=False,
+    y_lim=(None, 110.0),
+    context='notebook',
+    marker_size=12,
+    font_scale=1.6,
+    alpha_points=0.10,
+    alpha_fit=0.95,
+    save_path='../figures/exposure_trials_scatter_with_slope.png',
+    dpi=300
+):
+    """
+    Faceted scatterplot version of plot_all_trials, with per-group linear slope lines.
+    - Points: individual trials
+    - Fit line: linear regression slope per (target, condition, phase, no_connect_key) within each facet
+    """
+
+    data = data.copy()
+    data[x_col] = pd.to_numeric(data[x_col], errors='coerce')
+    data[y_col] = pd.to_numeric(data[y_col], errors='coerce')
+
+    # --- Identify Hit-Based Reference Range ---
+    hit_min, hit_max = None, None
+    if hit_col and ref_range_col and hit_col in data.columns and ref_range_col in data.columns:
+        hit_values = data[data[hit_col].astype(str) == 'True'][ref_range_col].dropna()
+        if not hit_values.empty:
+            hit_min = hit_values.min()
+            hit_max = hit_values.max()
+
+    # --- Setup condition line styles ---
+    available_linestyles = ['-', '--', ':', '-.']
+    unique_conditions = data[cond_col].dropna().unique() if cond_col in data.columns else []
+    cond_style_dict = {
+        cond: available_linestyles[i % len(available_linestyles)]
+        for i, cond in enumerate(unique_conditions)
+    }
+
+    # --- Transition trials and inactive spans ---
+    transition_trials = []
+    inactive_spans = []
+
+    if transition_col and transition_col in data.columns:
+        schedule_df = (
+            data[[x_col, transition_col]]
+            .dropna(subset=[x_col])
+            .drop_duplicates()
+            .sort_values(x_col)
+            .reset_index(drop=True)
+        )
+
+        shifted_state = schedule_df[transition_col].shift(1)
+        is_transition = (schedule_df[transition_col] != shifted_state) & shifted_state.notna()
+        transition_trials = schedule_df.loc[is_transition, x_col].unique()
+
+        in_inactive_block = False
+        start_x = None
+        for _, row in schedule_df.iterrows():
+            val = row[transition_col]
+            x_val = row[x_col]
+            if val == 0 and not in_inactive_block:
+                start_x = x_val
+                in_inactive_block = True
+            elif val == 1 and in_inactive_block:
+                inactive_spans.append((start_x, x_val))
+                in_inactive_block = False
+        if in_inactive_block and len(schedule_df):
+            inactive_spans.append((start_x, schedule_df[x_col].max()))
+
+    # --- Phase id ---
+    if transition_col and transition_col in data.columns and cond_col in data.columns:
+        data['_phase_id'] = data[transition_col].astype(str) + '_cond_' + data[cond_col].astype(str)
+    elif transition_col and transition_col in data.columns:
+        data['_phase_id'] = data[transition_col].astype(str)
+    else:
+        data['_phase_id'] = '0'
+
+    if no_connect_col and no_connect_col in data.columns:
+        data['_no_connect_key'] = data[no_connect_col].astype(str)
+    else:
+        data['_no_connect_key'] = 'all'
+
+    # categorical targets
+    labels = sorted(data[target_col].dropna().unique(), key=str)
+    data[target_col] = pd.Categorical(data[target_col], categories=labels, ordered=True)
+
+    # fallback palette if TARGET_PALETTE doesn't exist globally
+    if 'TARGET_PALETTE' in globals():
+        palette = TARGET_PALETTE
+    else:
+        colors = sns.color_palette('tab10', n_colors=max(3, len(labels)))
+        palette = {lab: colors[i % len(colors)] for i, lab in enumerate(labels)}
+
+    sns.set_context(context, font_scale=font_scale)
+    sns.set_theme(style="whitegrid")
+
+    g = sns.FacetGrid(
+        data,
+        row=row_col,
+        col=col_col,
+        sharex=True,
+        sharey=True,
+        margin_titles=True
+    )
+    g.set(ylim=y_lim)
+    g.fig.set_size_inches(24, 16)
+
+    # map axes -> facet data
+    axes_to_plot = []
+    if row_col or col_col:
+        for facet_key, ax in g.axes_dict.items():
+            if isinstance(facet_key, tuple):
+                row_val, col_val = facet_key
+            else:
+                row_val = facet_key
+                col_val = None
+
+            facet_data = data.copy()
+            if row_col and row_col in data.columns:
+                facet_data = facet_data[facet_data[row_col] == row_val]
+            if col_col and col_col in data.columns:
+                facet_data = facet_data[facet_data[col_col] == col_val]
+
+            axes_to_plot.append((ax, facet_data))
+    else:
+        axes_to_plot.append((g.ax, data))
+
+    # --- Scatter + slope lines ---
+    for ax, facet_data in axes_to_plot:
+        facet_data = facet_data.dropna(subset=[x_col, y_col])
+
+        # Hide facets with no plottable data
+        if facet_data.empty:
+            ax.set_visible(False)
+            continue
+
+        group_cols = [target_col, cond_col, '_phase_id', '_no_connect_key']
+        for keys, sub in facet_data.groupby(group_cols, dropna=False):
+            target_val, cond_val, _, _ = keys
+            color = palette.get(target_val, 'gray')
+            linestyle = cond_style_dict.get(cond_val, '-')
+
+            # scatter points
+            ax.scatter(
+                sub[x_col],
+                sub[y_col],
+                s=marker_size,
+                color=color,
+                alpha=alpha_points,
+                edgecolor='none'
+            )
+
+            # slope line (needs at least 2 unique x)
+            x = sub[x_col].to_numpy(dtype=float)
+            y = sub[y_col].to_numpy(dtype=float)
+            valid = np.isfinite(x) & np.isfinite(y)
+            x, y = x[valid], y[valid]
+
+            if len(np.unique(x)) >= 2:
+                m, b = np.polyfit(x, y, 1)
+                xfit = np.array([np.nanmin(x), np.nanmax(x)])
+                yfit = m * xfit + b
+                ax.plot(
+                    xfit, yfit,
+                    color=color,
+                    linestyle=linestyle,
+                    linewidth=2.2,
+                    alpha=alpha_fit
+                )
+
+        # reference lines/spans
+        if hit_min is not None and hit_max is not None:
+            ax.axhspan(hit_min, hit_max, color='green', alpha=0.1, zorder=0)
+            ax.axhline(hit_min, color='green', linestyle='--', alpha=0.35, lw=1.0, zorder=0)
+            ax.axhline(hit_max, color='green', linestyle='--', alpha=0.35, lw=1.0, zorder=0)
+
+        if show_zero_line:
+            ax.axhline(0.0, color='black', linestyle='--', alpha=0.35)
+
+        for span_start, span_end in inactive_spans:
+            ax.axvspan(span_start, span_end, color='gray', alpha=0.15, zorder=0, lw=0)
+
+        for t_x in transition_trials:
+            ax.axvline(t_x, color='gray', linestyle='--', alpha=0.6, zorder=0)
+
+        ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5, integer=True))
+        ax.xaxis.get_major_formatter().set_scientific(False)
+        ax.set_xlabel(x_col)
+        ax.set_ylabel(y_col)
+
+    # legend
+    handles = []
+    for t in labels:
+        handles.append(
+            mlines.Line2D(
+                [], [], color=palette.get(t, 'gray'),
+                marker='o', linestyle='None', markersize=6,
+                label=f"Target: {t}"
+            )
+        )
+    for cond_val, ls in cond_style_dict.items():
+        handles.append(
+            mlines.Line2D(
+                [], [], color='gray', linestyle=ls, linewidth=2.2,
+                label=f"Cond slope: {cond_val}"
+            )
+        )
+    if hit_min is not None:
+        handles.append(
+            mlines.Line2D([], [], color='green', linestyle='--', label='Hit Zone')
+        )
+
+    if handles:
+        g.fig.legend(
+            handles=handles,
+            title="Targets & Conditions",
+            loc="center left",
+            bbox_to_anchor=(0.88, 0.5),
+            frameon=True
+        )
+
+    g.fig.subplots_adjust(right=0.82, bottom=0.12, left=0.08, wspace=0.1)
+
+    if save_path:
+        g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
+
+    plt.show()
+    return g
+
 # early late exposure
 def plot_early_late_exposure(
     data,
@@ -670,7 +918,7 @@ def plot_exposure_trials_2m(
                     estimator=estimator, errorbar='se', err_kws={'alpha':0.25, 'linewidth':0},
                     hue = 'target_x_label', palette='bright', alpha=1, dashes=True)
 
-    g.fig.set_size_inches(14, 10.5)   # width, height in inches
+    g.fig.set_size_inches(10, 7.0)   # width, height in inches
     
     
     # Save

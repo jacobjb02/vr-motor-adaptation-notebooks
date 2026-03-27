@@ -19,10 +19,10 @@ def retain_baseline_washout(data,
         baseline_data = data_baseline_washout_still[~data_baseline_washout_still[phase_col].isin(washout_phases)]
         washout_data = data_baseline_washout_still[data_baseline_washout_still[phase_col].isin(washout_phases)]
         
-        # Group by target and take first 8 trials per target in washout
-        washout_data = washout_data.groupby(target_col).apply(
-            lambda x: x.nsmallest(8, trial_col) if trial_col in x.columns else x.head(8)
-        ).reset_index(drop=True)
+        # Group by target and participant and take first 8 trials per target in washout
+        #washout_data = washout_data.groupby([target_co, ppid_col]).apply(
+         #   lambda x: x.nsmallest(8, trial_col) if trial_col in x.columns else x.head(8)
+        #).reset_index(drop=True)
         
         data_baseline_washout_still = pd.concat([baseline_data, washout_data], ignore_index=True)
     
@@ -36,7 +36,7 @@ def retain_baseline_washout(data,
     speeds = data_baseline_washout_still[water_col].unique() 
     speed_tags = "_".join([str(round(s, 1)).replace('-', 'neg').replace('.', '_') for s in np.sort(speeds)])
     
-    file_name = f"baseline_washout_{exp_tags}_speed_{speed_tags}.csv"
+    file_name = f"{phases_to_keep}_{exp_tags}_speed_{speed_tags}.csv"
     file_path = f"..\\data\\{experiment_type}\\{file_name}"
     
     data_baseline_washout_still.to_csv(file_path, index=False)  
