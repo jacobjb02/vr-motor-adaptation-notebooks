@@ -1263,24 +1263,29 @@ def plot_density_targets(
 
 
 
+
+
+
+    
 def plot_min_x_z(data,
                  x_col_title,
                  y_col_title,
                  c_col,
                  r_col,
+                 show_target=False,      
                  show_slopes=False,
                  slope_array=None,
                  target_x_array=None,
                  hue_col='water_speed_binary',
-                 context='poster',      # Context set to poster
-                 font_scale=0.4,        # Drastically reduced to offset 'poster' base multiplier
-                 facet_height=4.5,      # Height in inches per subplot
-                 facet_aspect=0.8,      # Matches spatial ratio: 200cm(X) / 250cm(Z) = 0.8
+                 context='poster',
+                 font_scale=0.4,
+                 facet_height=4.5,
+                 facet_aspect=0.8,
                  save_path='../figures/PCA_slopes.svg',
                  dpi=300
                 ):
 
-    slope_array = np.array(slope_array, dtype=np.float64)
+    slope_array = np.array(slope_array, dtype=np.float64) if slope_array is not None else None
     target_array = np.array(target_x_array, dtype=np.float64)
     
     data = data.copy()
@@ -1302,50 +1307,59 @@ def plot_min_x_z(data,
                           sharex=True, sharey=True)
         
         g.map_dataframe(sns.scatterplot,
-                        data=data,
                         x='min_pos_from_target_x_cm', y='min_pos_from_target_z_cm',
-                        alpha=0.2       # Increased from 0.02 so smaller markers remain visible on posters
+                        s=100.0,
+                        #style = 'target_hit',
+                        alpha=0.2       
                        )
     
-        if show_slopes == True:
-            assert g.axes.shape == slope_array.shape, f"Check shape! Axes are {g.axes.shape} but slope_array is {slope_array.shape}"
+        # Handle Slopes and Targets
+        if show_slopes or show_target:
             rows, cols = g.axes.shape
             
             for col_idx in range(cols):
+                target_x = target_array[col_idx]
+                target_z = 140 # Matches your slope origin
+                
                 for row_idx in range(rows):
                     ax = g.axes[row_idx, col_idx]
-                    slope_deg = slope_array[row_idx, col_idx]
-                    target_x = target_array[col_idx]
-                    slope_val = np.tan(np.deg2rad(slope_deg))
+                    
+                    # Add Target Ring
+                    if show_target:
+                        ax.scatter(target_x, target_z, 
+                                   s=575,            
+                                   facecolors='none', 
+                                   edgecolors='red', 
+                                   linewidth=2, 
+                                   zorder=5)         # Keep it on top of data points
+                    
+                    # Add Slope Line
+                    if show_slopes and slope_array is not None:
+                        slope_deg = slope_array[row_idx, col_idx]
+                        slope_val = np.tan(np.deg2rad(slope_deg))
         
-                    ax.axline(xy1=(target_x, 140),
-                              slope=slope_val,
-                              color='black',
-                              linestyle='--',
-                              linewidth=2,
-                              alpha=0.6)
+                        ax.axline(xy1=(target_x, target_z),
+                                  slope=slope_val,
+                                  color='black',
+                                  linestyle='--',
+                                  linewidth=2,
+                                  alpha=0.6)
                     
                     ax.set_aspect('equal')
     
-        # Move legend outside the plot area
-        #g.add_legend(bbox_to_anchor=(1.05, 0.5), loc='center left')
         g.set_axis_labels(x_col_title, y_col_title)
-        
-        # Strip redundant variables from facet titles (removes "c_col = L60")
         g.set_titles(col_template="{col_name}", row_template="{row_name}")
-        
-        # Mechanically force whitespace to prevent text collisions
-        # hspace: vertical gap between rows | wspace: horizontal gap between columns
         g.fig.subplots_adjust(top=0.9, bottom=0.15, left=0.1, right=0.85, hspace=0.5, wspace=0.3)
                 
         if save_path:
             g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight') 
 
     plt.show()
-
     return g
 
 
+
+    
 
     
 
