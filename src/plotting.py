@@ -423,6 +423,7 @@ def plot_all_trials(
     plt.show()
     return g
 
+    
 
 def plot_all_trials_scatter_with_slope(
     data,
@@ -430,11 +431,11 @@ def plot_all_trials_scatter_with_slope(
     ppid_col,
     row_col,
     col_col,
-    target_col,
+    target_col,  # still used for grouping unless you override with line_color_col
     y_col='baseline_corrected_dist',
     x_col='trial_num_target',
-    hit_col=None,          # optional: e.g., 'hit'
-    ref_range_col=None,    # optional: e.g., target metric used for hit range
+    hit_col=None,
+    ref_range_col=None,
     transition_col=None,
     no_connect_col=None,
     show_zero_line=False,
@@ -445,12 +446,15 @@ def plot_all_trials_scatter_with_slope(
     alpha_points=0.10,
     alpha_fit=0.95,
     save_path='../figures/exposure_trials_scatter_with_slope.png',
-    dpi=300
+    dpi=300,
+    point_color_col=None,   # <-- NEW: column for point color
+    line_color_col=None,    # <-- NEW: column for line color
 ):
     """
-    Faceted scatterplot version of plot_all_trials, with per-group linear slope lines.
-    - Points: individual trials
-    - Fit line: linear regression slope per (target, condition, phase, no_connect_key) within each facet
+    Minimal-assumption version:
+    - Points colored by point_color_col (if provided)
+    - Lines colored by line_color_col (if provided)
+    - Grouping is still by target/cond/phase/no_connect unless you change group_cols
     """
 
     data = data.copy()
@@ -517,16 +521,17 @@ def plot_all_trials_scatter_with_slope(
     else:
         data['_no_connect_key'] = 'all'
 
-    # categorical targets
-    labels = sorted(data[target_col].dropna().unique(), key=str)
-    data[target_col] = pd.Categorical(data[target_col], categories=labels, ordered=True)
+    # --- palettes for point and line color ---
+    def make_palette(col):
+        if col is None or col not in data.columns:
+            return {}
+        levels = list(pd.Series(data[col]).dropna().unique())
+        n = max(1, len(levels))
+        colors = sns.color_palette('tab10', n_colors=n)
+        return {lvl: colors[i % n] for i, lvl in enumerate(levels)}
 
-    # fallback palette if TARGET_PALETTE doesn't exist globally
-    if 'TARGET_PALETTE' in globals():
-        palette = TARGET_PALETTE
-    else:
-        colors = sns.color_palette('tab10', n_colors=max(3, len(labels)))
-        palette = {lab: colors[i % len(colors)] for i, lab in enumerate(labels)}
+    point_palette = make_palette(point_color_col)
+    line_palette  = make_palette(line_color_col)
 
     sns.set_context(context, font_scale=font_scale)
     sns.set_theme(style="whitegrid")
@@ -540,7 +545,7 @@ def plot_all_trials_scatter_with_slope(
         margin_titles=True
     )
     g.set(ylim=y_lim)
-    g.fig.set_size_inches(24, 16)
+    g.fig.set_size_inches(12, 6)
 
     # map axes -> facet data
     axes_to_plot = []
@@ -566,7 +571,6 @@ def plot_all_trials_scatter_with_slope(
     for ax, facet_data in axes_to_plot:
         facet_data = facet_data.dropna(subset=[x_col, y_col])
 
-        # Hide facets with no plottable data
         if facet_data.empty:
             ax.set_visible(False)
             continue
@@ -574,20 +578,32 @@ def plot_all_trials_scatter_with_slope(
         group_cols = [target_col, cond_col, '_phase_id', '_no_connect_key']
         for keys, sub in facet_data.groupby(group_cols, dropna=False):
             target_val, cond_val, _, _ = keys
-            color = palette.get(target_val, 'gray')
+
+            # point color
+            if point_color_col and point_color_col in sub.columns:
+                point_val = sub[point_color_col].iloc[0]
+                point_color = point_palette.get(point_val, 'gray')
+            else:
+                point_color = 'gray'
+
+            # line color
+            if line_color_col and line_color_col in sub.columns:
+                line_val = sub[line_color_col].iloc[0]
+                line_color = line_palette.get(line_val, 'gray')
+            else:
+                line_color = 'gray'
+
             linestyle = cond_style_dict.get(cond_val, '-')
 
-            # scatter points
             ax.scatter(
                 sub[x_col],
                 sub[y_col],
                 s=marker_size,
-                color=color,
+                color=point_color,
                 alpha=alpha_points,
                 edgecolor='none'
             )
 
-            # slope line (needs at least 2 unique x)
             x = sub[x_col].to_numpy(dtype=float)
             y = sub[y_col].to_numpy(dtype=float)
             valid = np.isfinite(x) & np.isfinite(y)
@@ -599,13 +615,13 @@ def plot_all_trials_scatter_with_slope(
                 yfit = m * xfit + b
                 ax.plot(
                     xfit, yfit,
-                    color=color,
+                    color=line_color,
                     linestyle=linestyle,
                     linewidth=2.2,
                     alpha=alpha_fit
                 )
 
-        # reference lines/spans
+        # overlays
         if hit_min is not None and hit_max is not None:
             ax.axhspan(hit_min, hit_max, color='green', alpha=0.1, zorder=0)
             ax.axhline(hit_min, color='green', linestyle='--', alpha=0.35, lw=1.0, zorder=0)
@@ -625,32 +641,36 @@ def plot_all_trials_scatter_with_slope(
         ax.set_xlabel(x_col)
         ax.set_ylabel(y_col)
 
-    # legend
+    # --- legend: point colors + line colors + condition styles
     handles = []
-    for t in labels:
-        handles.append(
-            mlines.Line2D(
-                [], [], color=palette.get(t, 'gray'),
-                marker='o', linestyle='None', markersize=6,
-                label=f"Target: {t}"
+
+    if point_palette:
+        for k, c in point_palette.items():
+            handles.append(
+                mlines.Line2D([], [], color=c, marker='o', linestyle='None',
+                              markersize=6, label=f"Point: {k}")
             )
-        )
+
+    if line_palette:
+        for k, c in line_palette.items():
+            handles.append(
+                mlines.Line2D([], [], color=c, linestyle='-', linewidth=2.2,
+                              label=f"Line: {k}")
+            )
+
     for cond_val, ls in cond_style_dict.items():
         handles.append(
-            mlines.Line2D(
-                [], [], color='gray', linestyle=ls, linewidth=2.2,
-                label=f"Cond slope: {cond_val}"
-            )
+            mlines.Line2D([], [], color='gray', linestyle=ls, linewidth=2.2,
+                          label=f"Cond slope: {cond_val}")
         )
+
     if hit_min is not None:
-        handles.append(
-            mlines.Line2D([], [], color='green', linestyle='--', label='Hit Zone')
-        )
+        handles.append(mlines.Line2D([], [], color='green', linestyle='--', label='Hit Zone'))
 
     if handles:
         g.fig.legend(
             handles=handles,
-            title="Targets & Conditions",
+            title="Legend",
             loc="center left",
             bbox_to_anchor=(0.88, 0.5),
             frameon=True
@@ -663,6 +683,10 @@ def plot_all_trials_scatter_with_slope(
 
     plt.show()
     return g
+
+
+
+    
 
 # early late exposure
 def plot_early_late_exposure(
