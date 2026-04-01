@@ -138,7 +138,6 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import matplotlib.lines as mlines
-
 def plot_all_trials(
         data,
         cond_col,
@@ -146,8 +145,8 @@ def plot_all_trials(
         row_col,
         col_col,
         target_col,
-        hit_col=None,          # NEW: Boolean column to filter for successful hits
-        ref_range_col=None,    # NEW: Column to extract min/max hit values from
+        hit_col=None,          # Boolean column to filter for successful hits
+        ref_range_col=None,    # Column to extract min/max hit values from
         transition_col=None,
         no_connect_col=None,
         show_sd_line=False,
@@ -155,15 +154,16 @@ def plot_all_trials(
         y_col='baseline_corrected_dist',
         y_lim=(None, 110.0),
         x_col='trial_num_target',
+        vertical_list=None,
         estimator='mean',
         context='notebook',
         marker_size=2,
         font_scale=3,
-        save_path='../figures/exposure_trials_by_target_x_set.png',
+        save_path='../figures/all_trials.png',
         dpi=300
     ):
     """
-    Plots individual and mean sensorimotor traces across facets, 
+    Plots individual and mean sensorimotor traces across facets,
     with optional horizontal reference lines based on successful 'hit' trials.
     """
     data = data.copy()
@@ -172,7 +172,6 @@ def plot_all_trials(
     # --- Identify Hit-Based Reference Range ---
     hit_min, hit_max = None, None
     if hit_col and ref_range_col and hit_col in data.columns and ref_range_col in data.columns:
-        # Filter for successful hits and find the empirical range of the target
         hit_values = data[data[hit_col] == 'True'][ref_range_col].dropna()
         if not hit_values.empty:
             hit_min = hit_values.min()
@@ -181,14 +180,17 @@ def plot_all_trials(
     print('hit min', hit_min)
     print('hit max', hit_max)
 
-
     # --- Setup Condition Line Styles ---
     available_linestyles = ['-', '--', ':', '-.']
-    unique_conditions = data[cond_col].dropna().unique() if cond_col in data.columns else []
-    cond_style_dict = {
-        cond: available_linestyles[i % len(available_linestyles)]
-        for i, cond in enumerate(unique_conditions)
-    }
+    if cond_col and cond_col in data.columns:
+        unique_conditions = data[cond_col].dropna().unique()
+        cond_style_dict = {
+            cond: available_linestyles[i % len(available_linestyles)]
+            for i, cond in enumerate(unique_conditions)
+        }
+    else:
+        unique_conditions = []
+        cond_style_dict = {}
 
     # --- Global Statistics for SD Lines ---
     if show_sd_line:
@@ -224,7 +226,7 @@ def plot_all_trials(
             inactive_spans.append((start_x, schedule_df[x_col].max()))
 
     # --- CREATE PHASE/SET ORDER IDENTIFIER ---
-    if transition_col and transition_col in data.columns and cond_col in data.columns:
+    if transition_col and transition_col in data.columns and cond_col and cond_col in data.columns:
         data['_phase_id'] = data[transition_col].astype(str) + '_cond_' + data[cond_col].astype(str)
     elif transition_col and transition_col in data.columns:
         data['_phase_id'] = data[transition_col].astype(str)
@@ -252,7 +254,7 @@ def plot_all_trials(
     data[target_col] = pd.Categorical(data[target_col], categories=labels, ordered=True)
 
     sns.set_context(context, font_scale=font_scale)
-    sns.set_theme(style="whitegrid")
+    sns.set_theme(style="white")
 
     g = sns.FacetGrid(
         data,
@@ -306,7 +308,10 @@ def plot_all_trials(
 
     # 2. Plot Mean + SE
     for ax, facet_data in axes_to_plot:
-        groupby_cols = [x_col, target_col, cond_col, '_phase_id', '_no_connect_key']
+        groupby_cols = [x_col, target_col, '_phase_id', '_no_connect_key']
+        if cond_col and cond_col in facet_data.columns:
+            groupby_cols.insert(2, cond_col)  # after target_col
+
         grouped = (
             facet_data
             .dropna(subset=[y_col])
@@ -319,12 +324,21 @@ def plot_all_trials(
 
         for target_label in labels:
             color = TARGET_PALETTE[target_label]
-            for cond_val in grouped[cond_col].dropna().unique():
+
+            if cond_col and cond_col in grouped.columns:
+                cond_vals = grouped[cond_col].dropna().unique()
+            else:
+                cond_vals = [None]
+
+            for cond_val in cond_vals:
                 current_linestyle = cond_style_dict.get(cond_val, '-')
-                target_data = grouped[
-                    (grouped[target_col] == target_label) &
-                    (grouped[cond_col] == cond_val)
-                ].sort_values([x_col])
+                if cond_val is None:
+                    target_data = grouped[grouped[target_col] == target_label]
+                else:
+                    target_data = grouped[
+                        (grouped[target_col] == target_label) &
+                        (grouped[cond_col] == cond_val)
+                    ]
 
                 if len(target_data) > 0:
                     for phase_id in target_data['_phase_id'].unique():
@@ -345,7 +359,7 @@ def plot_all_trials(
                                     alpha=0.25, color=color, linewidth=0
                                 )
 
-    g.fig.set_size_inches(24, 16)
+    g.fig.set_size_inches(21, 14)
 
     # --- AXIS FORMATTING & REFERENCE LINES ---
     visible_bottom_axes = {}
@@ -355,6 +369,10 @@ def plot_all_trials(
     for i in range(nrows):
         for j in range(ncols):
             ax = g.axes[i, j]
+
+            ax.xaxis.grid(False)  # Turn off vertical lines
+            ax.yaxis.grid(True)   # Ensure horizontal lines stay on
+
             if not ax.lines and not ax.collections:
                 ax.set_visible(False)
                 continue
@@ -363,18 +381,15 @@ def plot_all_trials(
             if i not in visible_left_axes:
                 visible_left_axes[i] = ax
 
-                        # Plot Hit-Based Reference Lines (the new feature)
+            # Plot Hit-Based Reference Lines
             if hit_min is not None and hit_max is not None:
-                # Shade the area between the lines
                 ax.axhspan(
-                    ymin=hit_min, 
-                    ymax=hit_max, 
-                    color='green', 
-                    alpha=0.1,    # Keep alpha low (0.05 - 0.15) so it doesn't drown out the data
-                    zorder=0      # Ensure it stays behind the traces and mean lines
+                    ymin=hit_min,
+                    ymax=hit_max,
+                    color='green',
+                    alpha=0.1,
+                    zorder=0
                 )
-                
-                # Keep the boundary lines for definition
                 ax.axhline(y=hit_min, color='green', linestyle='--', alpha=0.3, lw=1.0, zorder=0)
                 ax.axhline(y=hit_max, color='green', linestyle='--', alpha=0.3, lw=1.0, zorder=0)
 
@@ -404,21 +419,26 @@ def plot_all_trials(
     # --- LEGEND ---
     handles = []
     for target_label, color in TARGET_PALETTE.items():
-        handles.append(mlines.Line2D([], [], color=color, marker='o', markersize=marker_size, 
+        handles.append(mlines.Line2D([], [], color=color, marker='o', markersize=marker_size,
                                      linewidth=3.0, linestyle='-', label=f"Target: {target_label}"))
     for cond_val, l_style in cond_style_dict.items():
-        handles.append(mlines.Line2D([], [], color='gray', marker='None', linewidth=3.0, 
+        handles.append(mlines.Line2D([], [], color='gray', marker='None', linewidth=3.0,
                                      linestyle=l_style, label=f"Cond: {cond_val}"))
     if hit_min is not None:
         handles.append(mlines.Line2D([], [], color='green', linestyle='--', alpha=0.6, label='Hit Zone'))
 
     if handles:
-        g.fig.legend(handles=handles, title="Targets & Conditions", loc="center left", 
+        g.fig.legend(handles=handles, title="Targets & Conditions", loc="center left",
                      bbox_to_anchor=(0.88, 0.5), frameon=True)
 
     g.fig.subplots_adjust(right=0.82, bottom=0.2, left=0.1, wspace=0.1)
     if save_path:
         g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
+
+    # vertical lines
+    if vertical_list:
+        for v in vertical_list:
+            g.map(plt.axvline, x=v, color='black', linestyle='--', linewidth=2.5, alpha=0.7)
 
     plt.show()
     return g
@@ -443,7 +463,7 @@ def plot_all_trials_scatter_with_slope(
     context='notebook',
     marker_size=12,
     font_scale=1.6,
-    alpha_points=0.10,
+    alpha_points=0.25,
     alpha_fit=0.95,
     save_path='../figures/exposure_trials_scatter_with_slope.png',
     dpi=300,
@@ -1303,9 +1323,9 @@ def plot_min_x_z(data,
                  hue_col='water_speed_binary',
                  context='poster',
                  font_scale=0.4,
-                 facet_height=4.5,
-                 facet_aspect=0.8,
-                 save_path='../figures/PCA_slopes.svg',
+                 facet_height=6.0,
+                 facet_aspect=1.0,
+                 save_path='../figures/PCA_slopes.png',
                  dpi=300
                 ):
 
@@ -1322,13 +1342,16 @@ def plot_min_x_z(data,
 
     with sns.plotting_context(context=context, font_scale=font_scale):
 
+        sns.set_style("whitegrid")
+
         g = sns.FacetGrid(data, 
                           col=c_col,
                           row=r_col,
                           hue=hue_col,
                           height=facet_height, 
                           aspect=facet_aspect, 
-                          sharex=True, sharey=True)
+                          sharex=True, sharey=True,
+                          gridspec_kws={"wspace": 0.02, "hspace": 0.02})
         
         g.map_dataframe(sns.scatterplot,
                         x='min_pos_from_target_x_cm', y='min_pos_from_target_z_cm',
@@ -1343,7 +1366,7 @@ def plot_min_x_z(data,
             
             for col_idx in range(cols):
                 target_x = target_array[col_idx]
-                target_z = 140 # Matches your slope origin
+                target_z = 140 
                 
                 for row_idx in range(rows):
                     ax = g.axes[row_idx, col_idx]
@@ -1801,7 +1824,7 @@ def plot_violin_with_slopes(
     context='notebook',
     font_scale=1.2,
     facet_height=4,
-    facet_aspect=1.7,
+    facet_aspect=1.0,
     facet_wspace=0.30,
     facet_hspace=0.22,
     violin_width=0.55,
