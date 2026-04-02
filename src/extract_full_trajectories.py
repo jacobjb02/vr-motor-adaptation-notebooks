@@ -8,12 +8,12 @@ def trial_trajectory(
     z_array,
     colour_col,
     ppid_col='ppid_full',   
-    max_trials_per_participant=10,
+    max_trials_per_participant=496, #496
     random_state=42,
-    water_col='water_speed_m_s',
+    water_col='water_speed_m_s', 
     target_col='target_x_label',
     trial_col='trial_num',
-    save_path='../figures/traject.png'
+    save_path='../figures/traject.svg'
 ):
 
     
@@ -87,6 +87,8 @@ def trial_trajectory(
     if dropped_mismatch > 0:
         print(f"[trial_trajectory] Warning: dropped {dropped_mismatch} unmatched x/z points due to unequal lengths.")
 
+    sns.set_style("whitegrid")
+    
     g = sns.relplot(
         data=df_long,
         x=z_array,
@@ -107,6 +109,9 @@ def trial_trajectory(
         facet_kws={'sharex': True, 'sharey': True}
     )
 
+    # Change gridline thickness
+    for ax in g.axes.flat:
+        ax.grid(True, linewidth=3.0)  # adjust 0.8 to your desired thickness
 
     # 3. Layout and Spacing
     g.set_axis_labels(f"X Coordinate ({x_array})", f"Z Coordinate ({z_array})")

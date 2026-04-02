@@ -1426,16 +1426,14 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
         data = data.dropna(subset=[facet_col])
     if facet_row is not None:
         data = data.dropna(subset=[facet_row])
-    
-    # Detect colour_type if auto
-    if colour_type == 'auto':
-        try:
-            pd.to_numeric(data[colour_col], errors='raise')
-            colour_type = 'continuous'
-        except (ValueError, TypeError):
-            colour_type = 'categorical'
-    
-    bg_color, text_color = ("black", "white") if dark else ("white", "black")
+
+
+    # Add near top, after dropna
+    if colour_type == "categorical":
+        levels = list(pd.unique(data[colour_col]))
+        if len(levels) >= 2:
+            palette = {levels[0]: "blue", levels[1]: "white"}
+
     
     if mean_line_color is None:
         mean_line_color = "white" if dark else "black"
@@ -1443,9 +1441,9 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
     sns.set_context("notebook", font_scale=font_scale)
 
     with sns.axes_style("darkgrid" if dark else "whitegrid", rc={
-        "axes.facecolor": bg_color, "figure.facecolor": bg_color,
-        "grid.color": "#333333" if dark else "#DDDDDD", "text.color": text_color,
-        "axes.labelcolor": text_color, "xtick.color": text_color, "ytick.color": text_color
+        "axes.facecolor": "white", "figure.facecolor": "white",
+        "grid.color": "#333333" if dark else "#DDDDDD", "text.color": "black",
+        "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black"
     }):
         
         if colour_type == 'continuous':
@@ -1455,14 +1453,14 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
             v_min, v_max = data[colour_col].min(), data[colour_col].max()
             norm = TwoSlopeNorm(vcenter=0.0, vmin=v_min, vmax=v_max) if v_min < 0 and v_max > 0 else plt.Normalize(vmin=v_min, vmax=v_max)
             
-            # Create plot without hue to avoid _hue error
+          
             g = sns.relplot(
                 data=data, x=x_col, y=y_col,
                 style=style_col, col=facet_col, row=facet_row,
-                alpha=0.6, kind='scatter', 
+                alpha=0.75, kind='scatter', s=90,
                 height=5, aspect=1.0, facet_kws={'margin_titles': True}
             )
-            g.fig.set_facecolor(bg_color)
+            g.fig.set_facecolor("white")
             
             # Manually apply continuous colormap
             cmap = plt.cm.get_cmap(palette)
@@ -1490,14 +1488,13 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
         
         else:
             # ============= CATEGORICAL COLOR MAPPING =============
-            # Use hue for categorical data (works well with seaborn)
             g = sns.relplot(
                 data=data, x=x_col, y=y_col, hue=colour_col,
                 style=style_col, col=facet_col, row=facet_row,
-                palette=palette, alpha=0.3, kind='scatter',
+                palette=palette, alpha=0.75, kind='scatter', s=90,
                 height=5, aspect=1.0, facet_kws={'margin_titles': True}
             )
-            g.fig.set_facecolor(bg_color)
+            g.fig.set_facecolor("white")
         
         # Mean Overlay Logic
         if show_mean_line:
@@ -1535,7 +1532,7 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
         
         # Styling
         for ax in g.axes.flat:
-            ax.set_facecolor(bg_color)
+            ax.set_facecolor("white")
             if dark:
                 ax.tick_params(colors=text_color)
 
