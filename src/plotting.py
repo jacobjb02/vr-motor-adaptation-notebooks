@@ -29,7 +29,7 @@ def plot_trial_schedule(
     y_col,
     context='notebook',
     font_scale=2,
-    save_path='../figures/trial_schedule.svg',
+    save_path='../figures/trial_schedule.png',
     dpi=300
 ):
 
@@ -44,8 +44,8 @@ def plot_trial_schedule(
         data=data, 
         kind='line', linewidth = 3,
         x='trial_num', y=y_col,
-        height=5, 
-        aspect=3
+        height=6.0, 
+        aspect=1.3
     )
 
     # set axis labels
@@ -1308,9 +1308,6 @@ def plot_density_targets(
 
 
 
-
-
-    
 def plot_min_x_z(data,
                  x_col_title,
                  y_col_title,
@@ -1325,7 +1322,7 @@ def plot_min_x_z(data,
                  font_scale=0.4,
                  facet_height=6.0,
                  facet_aspect=1.0,
-                 save_path='../figures/PCA_slopes.png',
+                 save_path='../figures/PCA_slopes.svg',
                  dpi=300
                 ):
 
@@ -1341,73 +1338,74 @@ def plot_min_x_z(data,
         data[c_col] = data[c_col].cat.remove_unused_categories()
 
     with sns.plotting_context(context=context, font_scale=font_scale):
-
         sns.set_style("whitegrid")
 
-        g = sns.FacetGrid(data, 
-                          col=c_col,
-                          row=r_col,
-                          hue=hue_col,
-                          height=facet_height, 
-                          aspect=facet_aspect, 
-                          sharex=True, sharey=True,
-                          gridspec_kws={"wspace": 0.02, "hspace": 0.02})
-        
-        g.map_dataframe(sns.scatterplot,
-                        x='min_pos_from_target_x_cm', y='min_pos_from_target_z_cm',
-                        s=100.0,
-                        #style = 'target_hit',
-                        alpha=0.2       
-                       )
-    
+        g = sns.relplot(
+            data=data,
+            x='min_pos_from_target_x_cm',  
+            y='min_pos_from_target_z_cm',   
+            col=c_col,
+            row=r_col,
+            hue=hue_col,
+            kind='scatter',
+            palette='viridis',
+            height=facet_height,
+            aspect=facet_aspect,
+            alpha=0.2,
+            s=500.0,
+            legend="brief",
+            facet_kws={'sharex': True, 'sharey': True}
+        )
+
+        # Match trial_trajectory grid thickness
+        for ax in g.axes.flat:
+            ax.grid(True, linewidth=3.0)
+
         # Handle Slopes and Targets
         if show_slopes or show_target:
             rows, cols = g.axes.shape
-            
+
             for col_idx in range(cols):
                 target_x = target_array[col_idx]
-                target_z = 140 
-                
+                target_z = 140
+
                 for row_idx in range(rows):
                     ax = g.axes[row_idx, col_idx]
-                    
-                    # Add Target Ring
+
                     if show_target:
-                        ax.scatter(target_x, target_z, 
-                                   s=575,            
-                                   facecolors='none', 
-                                   edgecolors='red', 
-                                   linewidth=2, 
-                                   zorder=5)         # Keep it on top of data points
-                    
-                    # Add Slope Line
+                        ax.scatter(
+                            target_x, target_z,
+                            s=1500,
+                            facecolors='none',
+                            edgecolors='red',
+                            linewidth=5,
+                            zorder=5
+                        )
+
                     if show_slopes and slope_array is not None:
                         slope_deg = slope_array[row_idx, col_idx]
                         slope_val = np.tan(np.deg2rad(slope_deg))
-        
-                        ax.axline(xy1=(target_x, target_z),
-                                  slope=slope_val,
-                                  color='black',
-                                  linestyle='--',
-                                  linewidth=2,
-                                  alpha=0.6)
-                    
+
+                        ax.axline(
+                            xy1=(target_x, target_z),
+                            slope=slope_val,
+                            color='black',
+                            linestyle='--',
+                            linewidth=5,
+                            alpha=0.6
+                        )
+
                     ax.set_aspect('equal')
-    
+
         g.set_axis_labels(x_col_title, y_col_title)
         g.set_titles(col_template="{col_name}", row_template="{row_name}")
-        g.fig.subplots_adjust(top=0.9, bottom=0.15, left=0.1, right=0.85, hspace=0.5, wspace=0.3)
-                
+        g.tight_layout()
+
         if save_path:
-            g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight') 
+            g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
 
     plt.show()
     return g
-
-
-
-    
-
     
 
 from matplotlib.colors import TwoSlopeNorm

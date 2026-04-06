@@ -88,12 +88,18 @@ def trial_trajectory(
         print(f"[trial_trajectory] Warning: dropped {dropped_mismatch} unmatched x/z points due to unequal lengths.")
 
     sns.set_style("whitegrid")
-    
+
+
+    target_order = sorted(df_long[target_col].unique(), reverse=False)
+
+    #print(f"Removed {r60_errors.sum()} points from R60 due to x < -0.45 constraint.")
+        
     g = sns.relplot(
         data=df_long,
         x=z_array,
         y=x_array,
         col=target_col,
+        col_order=target_order, 
         row=water_col,
         hue=colour_col,
         units=plot_trial_col,
@@ -111,8 +117,9 @@ def trial_trajectory(
 
     # Change gridline thickness
     for ax in g.axes.flat:
-        ax.grid(True, linewidth=3.0)  # adjust 0.8 to your desired thickness
-
+        ax.grid(True, linewidth=3.0)  
+        ax.set_xlim(-1.0, 1.5)  # Sets the horizontal bounds for each facet
+        
     # 3. Layout and Spacing
     g.set_axis_labels(f"X Coordinate ({x_array})", f"Z Coordinate ({z_array})")
     g.fig.suptitle("Participant Trial Trajectories", y=1.05, fontsize=14)
