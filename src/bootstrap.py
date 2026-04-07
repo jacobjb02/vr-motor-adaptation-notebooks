@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 import seaborn as sns
+import seaborn.objects as so
 import matplotlib.pyplot as plt 
 
 
@@ -75,8 +76,6 @@ def bootstrap_by_groups(
 
 
 
-import seaborn as sns
-import seaborn.objects as so
 
 # Global static color mapping for targets
 _colors = sns.color_palette("bright", 4)
@@ -87,7 +86,6 @@ TARGET_PALETTE = {
     "R60": _colors[3],  # Red
 }
 
-import seaborn.objects as so
 def plot_bootstrap_cis(
     ci_df,
     x_col,
@@ -98,18 +96,34 @@ def plot_bootstrap_cis(
     facet_col=None,
     facet_row="speed_label",
     col_wrap=None,
-    height=4,
-    aspect=1.6,
-    width_scale=1.5,
-    x_order=None,           
-    hue_order=None,         
+    height=8,
+    aspect=1.2,
+    width_scale=1.0,
+    x_order=None,            
+    hue_order=None,          
     title=None,
     palette=TARGET_PALETTE,
-    save_path='../figures/bootstrap_ci.png'
+    save_path='../figures/bootstrap_ci.svg'
 ):
-
-    style_dict = sns.axes_style("whitegrid")
-    style_dict["axes.grid.axis"] = "y"
+    # 1. Enforce horizontal grid lines and suppress all vertical structural lines
+    style_dict = sns.axes_style("white")
+    style_dict.update({
+        "axes.grid": True,
+        "axes.grid.axis": "y",        # Restricts internal grid to horizontal lines only
+        "grid.color": "#e0e0e0",
+        "grid.linestyle": "-",
+        "axes.edgecolor": "#7f7f7f",  # Medium gray for remaining spines
+        
+        # Spine Control (Bounding Box)
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "axes.spines.left": False,    # Removes the vertical y-axis anchoring line
+        "axes.spines.bottom": True,   # Retains the horizontal x-axis baseline
+        
+        # Tick Mark Control
+        "xtick.bottom": False,        # Removes small vertical tick marks on the x-axis
+        "ytick.left": False           # Removes small horizontal tick marks on the y-axis
+    })
     
     p = (
         so.Plot(
@@ -120,15 +134,21 @@ def plot_bootstrap_cis(
             ymax=ci_high_col,
             color=hue if hue in ci_df.columns else None,
         )
-        .add(so.Range(), so.Dodge(gap=0.2))
-        .add(so.Dots(), so.Dodge(gap=0.2))
-        .scale(color=palette)
+        # 2. Thicker lines with partial transparency to match previous trace alphas
+        .add(so.Range(linewidth=3.5, alpha=0.6), so.Dodge(empty="drop", gap=0.3))
+        # 3. Larger markers with white edges for crisp separation in clusters
+        .add(so.Dots(pointsize=9, alpha=0.9), so.Dodge(empty="drop", gap=0.3))
     )
 
+    # 4. Consolidate scale mappings
     if x_order is not None:
         p = p.scale(x=so.Nominal(order=x_order))
-    if hue is not None and hue_order is not None:
-        p = p.scale(color=so.Nominal(order=hue_order))
+        
+    if hue is not None:
+        if hue_order is not None:
+            p = p.scale(color=so.Nominal(order=hue_order, values=palette))
+        else:
+            p = p.scale(color=so.Nominal(values=palette))
 
     if facet_col or facet_row:
         p = p.facet(col=facet_col, row=facet_row, wrap=col_wrap)

@@ -159,7 +159,7 @@ def plot_all_trials(
         context='notebook',
         marker_size=2,
         font_scale=3,
-        save_path='../figures/all_trials.png',
+        save_path='../figures/all_trials.svg',
         dpi=300
     ):
     """
@@ -349,7 +349,7 @@ def plot_all_trials(
                                 ax.plot(
                                     seg[x_col], seg['mean'],
                                     marker='o', markersize=marker_size,
-                                    linewidth=1.75, color=color, alpha=0.80,
+                                    linewidth=3.5, color=color, alpha=0.80,
                                     linestyle=current_linestyle
                                 )
                                 ax.fill_between(
@@ -359,7 +359,7 @@ def plot_all_trials(
                                     alpha=0.25, color=color, linewidth=0
                                 )
 
-    g.fig.set_size_inches(21, 14)
+    g.fig.set_size_inches(27, 23.5)
 
     # --- AXIS FORMATTING & REFERENCE LINES ---
     visible_bottom_axes = {}
@@ -1414,7 +1414,7 @@ from matplotlib.cm import ScalarMappable
 def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet_col=None, facet_row=None, 
                  style_col=None, mode='correlation', dark=True, font_scale=1.2, 
                  show_legend=True, show_mean_line=False, mean_line_color=None, 
-                 colour_type='auto', palette='plasma', save_path='../figures/heatmap.png', dpi=300): 
+                 colour_type='auto', palette='plasma', save_path='../figures/heatmap.svg', dpi=300): 
 
     data = data.copy().reset_index(drop=True)
     
@@ -1489,8 +1489,8 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
             g = sns.relplot(
                 data=data, x=x_col, y=y_col, hue=colour_col,
                 style=style_col, col=facet_col, row=facet_row,
-                palette=palette, alpha=0.75, kind='scatter', s=90,
-                height=5, aspect=1.0, facet_kws={'margin_titles': True}
+                palette=palette, alpha=0.65, kind='scatter', s=150,
+                height=6.5, aspect=0.82, facet_kws={'margin_titles': True}
             )
             g.fig.set_facecolor("white")
         
@@ -1818,8 +1818,8 @@ def plot_violin_with_slopes(
     show_zero_line=False,
     context='notebook',
     font_scale=1.2,
-    facet_height=4,
-    facet_aspect=1.0,
+    facet_height=8,
+    facet_aspect=0.8,
     facet_wspace=0.30,
     facet_hspace=0.22,
     violin_width=0.55,
@@ -1830,7 +1830,7 @@ def plot_violin_with_slopes(
     slope_gap=0.08,
     facet_row_order=None,
     facet_col_order=None,
-    save_path='../figures/violin_with_slopes.png',
+    save_path='../figures/violin_with_slopes.svg',
     dpi=300
 ):
     import numpy as np
@@ -1952,8 +1952,11 @@ def plot_violin_with_slopes(
         ax.yaxis.set_tick_params(labelleft=True)
         ax.yaxis.label.set_visible(True)
 
-    # Clean up duplicate legends and create global legend
+    # apply grid styles, and create global legend
     for ax in g.axes.flat:
+        ax.xaxis.grid(False)  # Turn off vertical lines
+        ax.yaxis.grid(True)   # Ensure horizontal lines stay on
+            
         if ax.get_legend() is not None:
             ax.get_legend().remove()
 
