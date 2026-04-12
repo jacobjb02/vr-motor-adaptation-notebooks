@@ -193,8 +193,8 @@ def remove_baseline_outlier_trials_threshold_sd(data,
 def remove_outliers_per_trial(data, y_col, trial_col, water_col, target_col, sd_error_threshold=3.0):
 
     # Calculate mean and sd FOR EACH TRIAL across the dataset
-    trial_means = data.groupby([trial_col, water_col, target_col])[y_col].transform('mean')
-    trial_sds = data.groupby([trial_col, water_col, target_col])[y_col].transform('std')
+    trial_means = data.groupby([trial_col, water_col, target_col], observed=True)[y_col].transform('mean')
+    trial_sds = data.groupby([trial_col, water_col, target_col], observed=True)[y_col].transform('std')
     
     # Calculate absolute deviation from the trial-specific mean
     deviation = np.abs(data[y_col] - trial_means)

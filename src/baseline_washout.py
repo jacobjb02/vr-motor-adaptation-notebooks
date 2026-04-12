@@ -35,7 +35,7 @@ def retain_baseline_washout(data,
 
     if trial_counter == True:
         grouping_vars = ['target_x_label', 'ppid_full', 'phase']
-        data_baseline_washout_still['washout_target_trial_num'] = data_baseline_washout_still.groupby(grouping_vars).cumcount() + 1
+        data_baseline_washout_still['washout_target_trial_num'] = data_baseline_washout_still.groupby(grouping_vars, observed=False).cumcount() + 1
 
         
     # Extract unique water speeds from filtered data

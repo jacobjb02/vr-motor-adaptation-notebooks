@@ -23,7 +23,7 @@ def bootstrap_by_groups(
     results = []
 
     # Group by group_cols + x_col to get CI per x level within each group
-    grouped = df.groupby(list(group_cols) + [x_col], dropna=False)
+    grouped = df.groupby(list(group_cols) + [x_col], dropna=False,  observed=True)
 
     for keys, group in grouped:
         y = group[y_col].to_numpy()

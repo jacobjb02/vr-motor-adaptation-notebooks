@@ -132,6 +132,11 @@ def plot_baseline(
     return g
 
 
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+import matplotlib.lines as mlines
+
+
 
 import pandas as pd
 import seaborn as sns
@@ -242,7 +247,7 @@ def plot_all_trials(
 
     # CREATE COMPOSITE UNITS COLUMN
     data['_units_composite'] = data[ppid_col].astype(str) + '_' + data['_phase_id'].astype(str)
-    data['_units_composite'] = data.groupby(grouping_cols)['_units_composite'].transform(lambda x: x.ffill().bfill())
+    data['_units_composite'] = data.groupby(grouping_cols, observed=False)['_units_composite'].transform(lambda x: x.ffill().bfill())
 
     if no_connect_col and no_connect_col in data.columns:
         data['_no_connect_key'] = data[no_connect_col].astype(str)
@@ -315,7 +320,7 @@ def plot_all_trials(
         grouped = (
             facet_data
             .dropna(subset=[y_col])
-            .groupby(groupby_cols)
+            .groupby(groupby_cols, observed=False)
             .agg({y_col: ['mean', 'sem', 'count']})
             .reset_index()
         )
@@ -443,7 +448,8 @@ def plot_all_trials(
     plt.show()
     return g
 
-    
+
+
 
 def plot_all_trials_scatter_with_slope(
     data,
@@ -467,8 +473,8 @@ def plot_all_trials_scatter_with_slope(
     alpha_fit=0.95,
     save_path='../figures/exposure_trials_scatter_with_slope.png',
     dpi=300,
-    point_color_col=None,   # <-- NEW: column for point color
-    line_color_col=None,    # <-- NEW: column for line color
+    point_color_col=None,   
+    line_color_col=None,    
 ):
     """
     Minimal-assumption version:
@@ -1319,7 +1325,7 @@ def plot_min_x_z(data,
                  target_x_array=None,
                  hue_col='water_speed_binary',
                  context='poster',
-                 font_scale=0.4,
+                 font_scale=1.0,
                  facet_height=6.0,
                  facet_aspect=1.0,
                  save_path='../figures/PCA_slopes.svg',

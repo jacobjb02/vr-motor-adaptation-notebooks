@@ -19,7 +19,7 @@ def trial_trajectory(
     
     df = data.copy()
 
-    # 0) Sample up to N trials per participant (FASTEST place to reduce size)
+    # Sample up to N trials per participant 
     if ppid_col in df.columns:
         df = (
             df.groupby(ppid_col, group_keys=False, observed=False)
@@ -76,13 +76,9 @@ def trial_trajectory(
             })
 
 
-    print(f"Columns requested for sort: {[plot_trial_col, 'point_idx', colour_col]}")
-
     df_long = pd.DataFrame(rows).sort_values([plot_trial_col, 'point_idx', colour_col])
 
     df_long[colour_col] = pd.to_numeric(df_long[colour_col], errors='coerce')
-
-    print(f"Columns actually in df_long: {df_long.columns.tolist()}")
 
     if dropped_mismatch > 0:
         print(f"[trial_trajectory] Warning: dropped {dropped_mismatch} unmatched x/z points due to unequal lengths.")
@@ -90,9 +86,7 @@ def trial_trajectory(
     sns.set_style("whitegrid")
 
 
-    target_order = sorted(df_long[target_col].unique(), reverse=False)
-
-    #print(f"Removed {r60_errors.sum()} points from R60 due to x < -0.45 constraint.")
+    target_order = sorted(df_long[target_col].unique(), reverse=False) # plot facet order
         
     g = sns.relplot(
         data=df_long,
@@ -111,7 +105,7 @@ def trial_trajectory(
         sort=False,
         alpha=0.8,
         linewidth=1.0,
-        legend="brief",    # Limits the number of labels for continuous data
+        legend="brief",   
         facet_kws={'sharex': True, 'sharey': True}
     )
 
@@ -131,4 +125,4 @@ def trial_trajectory(
 
     plt.show()
 
-    return df_long
+    return

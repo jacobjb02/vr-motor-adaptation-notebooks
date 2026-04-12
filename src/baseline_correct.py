@@ -12,7 +12,7 @@ def baseline_correct(data, phase_col, baseline_string, y_col, PCA_col,
                        (data['trial_num'].between(min_trial, max_trial))]
     
     # 2. Means and Medians for BOTH columns
-    df_baseline = df_filtered.groupby(grouping_vars)[[y_col, PCA_col]].agg(['mean', 'median'])
+    df_baseline = df_filtered.groupby(grouping_vars, observed=True)[[y_col, PCA_col]].agg(['mean', 'median'])
     
     # Flatten the multi-index columns
     df_baseline.columns = [f"{col[0]}_{col[1]}" for col in df_baseline.columns]
@@ -33,11 +33,11 @@ def baseline_correct(data, phase_col, baseline_string, y_col, PCA_col,
     check_mask = (df_merged[phase_col] == baseline_string) & (df_merged['trial_num'].between(min_trial, max_trial))
         
     # Assert Median is zeroed for BOTH
-    assert np.isclose(df_merged[check_mask].groupby(grouping_vars)[f"{y_col}_median_bc"].median(), 0, atol=1e-8).all()
-    assert np.isclose(df_merged[check_mask].groupby(grouping_vars)[f"{PCA_col}_median_bc"].median(), 0, atol=1e-8).all()
+    assert np.isclose(df_merged[check_mask].groupby(grouping_vars, observed=True)[f"{y_col}_median_bc"].median(), 0, atol=1e-8).all()
+    assert np.isclose(df_merged[check_mask].groupby(grouping_vars, observed=True)[f"{PCA_col}_median_bc"].median(), 0, atol=1e-8).all()
             
     # Assert Mean is zeroed for BOTH
-    assert np.isclose(df_merged[check_mask].groupby(grouping_vars)[f"{y_col}_mean_bc"].mean(), 0, atol=1e-8).all()
-    assert np.isclose(df_merged[check_mask].groupby(grouping_vars)[f"{PCA_col}_mean_bc"].mean(), 0, atol=1e-8).all()
+    assert np.isclose(df_merged[check_mask].groupby(grouping_vars, observed=True)[f"{y_col}_mean_bc"].mean(), 0, atol=1e-8).all()
+    assert np.isclose(df_merged[check_mask].groupby(grouping_vars, observed=True)[f"{PCA_col}_mean_bc"].mean(), 0, atol=1e-8).all()
         
     return df_merged

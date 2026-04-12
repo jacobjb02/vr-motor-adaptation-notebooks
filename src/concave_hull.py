@@ -55,7 +55,7 @@ def draw_concave_hull(
     data, x_col, y_col, concavity, threshold, target_col, speed_col, 
     xlim=None, ylim=None, scale_to_axes=True
 ):
-    grouped = data.groupby([target_col, speed_col])
+    grouped = data.groupby([target_col, speed_col], observed=True)
     hulls = {}
 
     if xlim is None:
@@ -170,7 +170,6 @@ def plot_faceted_hulls(
                         closed=True,
                         fill=True,
                         alpha=0.45,
-                        color='blue',
                         edgecolor='darkblue',
                         linewidth=1.0,
                         zorder=1

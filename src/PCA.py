@@ -20,7 +20,7 @@ def compute_PCA_summary(data,
     
     results = []
 
-    data_group = data.groupby(group_cols)
+    data_group = data.groupby(group_cols, observed=True)
     # now we can group by each unique group and create a dataframe for each thanks to pandas
     for group_name, group_data in data_group:
         
@@ -87,8 +87,8 @@ def compute_PCA_error(trial_df,
     trial_df['centered_z'] = trial_df[features[1]] - trial_df['pc_vector_1_pca_center_z'] 
     
     # Check if target centered was correct
-    assert np.isclose(trial_df.groupby(group_cols)['centered_x'].mean(), 0, atol=1e-8).all(), "X not centered in one or more groups"
-    assert np.isclose(trial_df.groupby(group_cols)['centered_z'].mean(), 0, atol=1e-8).all(), "Z not centered in one or more groups"
+    assert np.isclose(trial_df.groupby(group_cols, observed=True)['centered_x'].mean(), 0, atol=1e-8).all(), "X not centered in one or more groups"
+    assert np.isclose(trial_df.groupby(group_cols, observed=True)['centered_z'].mean(), 0, atol=1e-8).all(), "Z not centered in one or more groups"
             
     # unrotate the data using sin and cos on the centred data: Places all targets on the same plane for equal comparison
     trial_df['unrotated_x'] = (trial_df['centered_x'] * cos_t) - (trial_df['centered_z'] * sin_t)
@@ -103,7 +103,6 @@ def compute_PCA_error(trial_df,
             col='target_x_label',  
             row='water_speed_binary',
             alpha=0.15,
-            palette='vlag',            
             kind='scatter'
         )
         # Apply grid to all faceted subplots
