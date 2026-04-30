@@ -3,9 +3,9 @@ import numpy as np
 target_labels = np.unique(exposure_trials['target_x_label'])
 
 
-speeds = np.array(exposure_trials['launch_Speed']) #.reshape(-1,1)
-angles = np.array(exposure_trials['launch_deviation'])#.reshape(-1,1)
-error = np.array(exposure_trials['baseline_corrected_dist'])#.reshape(-1,1)
+speeds = np.array(exposure_trials['launch_Speed']) 
+# angles = np.array(exposure_trials['launch_deviation'])
+error = np.array(exposure_trials['flip_PCA_extent_error_cm_mean_bc'])
 targets = np.array(exposure_trials['target_x_label'])#.reshape(-1,1)
 
 

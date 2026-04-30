@@ -20,7 +20,7 @@ def extract_key_columns(data):
     
     # selected columns (edit if needed)
     cols = [
-        'experiment', 'ppid_full', 'speed_label', 'target_x_label', 'target_position_x_cm', 'target_position_z_cm', 'trial_num', 'phase', 'phase_trial_num', 'phase_target_trial_num', 'trial_num_target', 'global_cycle_num', 'cycle_target_num','cycle_TargetxPhase_num', 'launch_deviation', 'launch_Speed','distance_from_target', 'ball_dist_to_center_cm', 'signed_euclidean_cm', 'lateral_error_x_cm', 'depth_error_z_cm', 'target_hit', 'water_speed_binary', 'water_speed_m_s', 'sign_label','set_order', 'min_pos_from_target_x_cm', 'min_pos_from_target_z_cm','target_angle_90', 'ball_pos_x', 'ball_pos_z','final_ball_pos_x'
+        'experiment', 'ppid_full', 'speed_label', 'target_x_label', 'target_position_x_cm', 'target_position_z_cm', 'trial_num', 'phase', 'phase_trial_num', 'phase_target_trial_num', 'trial_num_target', 'global_cycle_num', 'cycle_target_num','cycle_TargetxPhase_num', 'launch_angle', 'launch_deviation', 'launch_Speed','distance_from_target', 'ball_dist_to_center_cm', 'signed_euclidean_cm', 'lateral_error_x_cm', 'depth_error_z_cm', 'target_hit', 'water_speed_binary', 'water_speed_m_s', 'sign_label','set_order', 'min_pos_from_target_x_cm', 'min_pos_from_target_z_cm','target_angle_90', 'ball_pos_x', 'ball_pos_z','final_ball_pos_x'
             ]
 
     # make copied subset of original df 
