@@ -14,12 +14,12 @@ from matplotlib.colors import TwoSlopeNorm, Normalize
 import matplotlib.lines as mlines
 
 # Global static color mapping for targets
-_colors = sns.color_palette("bright", 4)
+_colors = sns.color_palette(["#FF0000", "#0000FF", "#FF4500", "#05472A"])
 TARGET_PALETTE = {
-    "L60": _colors[2], # Green
-    "L30": _colors[0], # Blue
+    "L60": _colors[3], # Green
+    "L30": _colors[2], # Blue
     "R30":   _colors[1], # Orange
-    "R60":   _colors[3]  # Red
+    "R60":   _colors[0]  # Red
 }
 
 
@@ -132,12 +132,6 @@ def plot_baseline(
     return g
 
 
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-import matplotlib.lines as mlines
-
-
-
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -164,7 +158,7 @@ def plot_all_trials(
         context='notebook',
         marker_size=2,
         font_scale=3,
-        save_path='../figures/all_trials.svg',
+        save_path='../figures/all_trials.png',
         dpi=300
     ):
     """
@@ -186,7 +180,7 @@ def plot_all_trials(
     print('hit max', hit_max)
 
     # --- Setup Condition Line Styles ---
-    available_linestyles = ['-', '--', ':', '-.']
+    available_linestyles = ['-', (0, (5, 1)), '--', ':', '-.']
     if cond_col and cond_col in data.columns:
         unique_conditions = data[cond_col].dropna().unique()
         cond_style_dict = {
@@ -1825,7 +1819,7 @@ def plot_violin_with_slopes(
     context='notebook',
     font_scale=1.2,
     facet_height=10,
-    facet_aspect=1.25,
+    facet_aspect=1.00,
     facet_wspace=0.30,
     facet_hspace=0.22,
     violin_width=0.55,
@@ -1836,7 +1830,7 @@ def plot_violin_with_slopes(
     slope_gap=0.08,
     facet_row_order=None,
     facet_col_order=None,
-    save_path='../figures/violin_with_slopes.svg',
+    save_path='../figures/violin_with_slopes.png',
     dpi=300
 ):
     import numpy as np
