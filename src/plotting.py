@@ -1805,8 +1805,6 @@ def plot_early_late_exposure_with_slopes(
 
 
 
-
-
 def plot_violin_with_slopes(
     data,
     cond_col,
@@ -1818,16 +1816,16 @@ def plot_violin_with_slopes(
     show_zero_line=False,
     context='notebook',
     font_scale=1.2,
-    facet_height=10,
+    facet_height=5,
     facet_aspect=1.00,
-    facet_wspace=0.30,
+    facet_wspace=0.6,
     facet_hspace=0.22,
-    violin_width=0.55,
+    violin_width=0.4,
     violin_alpha=0.15,
     strip_size=3,
     strip_alpha=0.35,
     strip_jitter=0.06,
-    slope_gap=0.08,
+    slope_gap=0.01,
     facet_row_order=None,
     facet_col_order=None,
     save_path='../figures/violin_with_slopes.png',
@@ -1844,6 +1842,8 @@ def plot_violin_with_slopes(
     
     # Pre-compute numeric mappings and dodge offsets
     unique_x_cats = list(sorted(data[x_col].dropna().unique()))
+
+    data = data.copy()
     data['_x_numeric'] = data[x_col].map({cat: i for i, cat in enumerate(unique_x_cats)}).astype(float)
 
     if facet_row_order is None and facet_row:
@@ -1905,34 +1905,26 @@ def plot_violin_with_slopes(
             x_scatter = x_num + hue_to_offset[h] + np.random.uniform(-strip_jitter/2, strip_jitter/2, size=len(hdf))
             ax.scatter(x_scatter, y_val, s=strip_size**2, color=color, alpha=strip_alpha, edgecolors='none', zorder=8)
 
-            # Draw Slopes
+            # Draw Empirical Means (Connecting points)
             if is_valid_slope_facet and len(hdf) >= 2:
-                slope, intercept, _, _, _ = stats.linregress(x_num, y_val)
+                # Isolate unique X positions and calculate empirical means
+                unique_x_vals = np.sort(np.unique(x_num))
+                y_means = np.array([np.mean(y_val[x_num == x]) for x in unique_x_vals])
 
-                x_min_center, x_max_center = x_num.min(), x_num.max()
-                x0 = x_min_center + (violin_width / 2.0) + slope_gap
-                x1 = x_max_center - (violin_width / 2.0) - slope_gap
-
-                if x1 <= x0:
-                    x0, x1 = x_min_center + (violin_width / 2.0) + 0.05, x_max_center - (violin_width / 2.0) - 0.05
-
-                x_line = np.array([x0, x1])
-                y_line = slope * x_line + intercept
-
-                y_pred = slope * x_num + intercept
-                residuals = y_val - y_pred
-                residual_std_err = np.sqrt(np.sum(residuals**2) / (len(hdf) - 2)) if len(hdf) > 2 else np.std(residuals)
-
-                n = len(hdf)
-                x_mean = x_num.mean()
-                sxx = np.sum((x_num - x_mean) ** 2)
+                # Map to visual dodged coordinates
+                visual_x_vals = unique_x_vals + hue_to_offset[h]
                 
-                se_pred = residual_std_err * np.sqrt(1 / n + (x_line - x_mean) ** 2 / sxx) if sxx > 0 else np.array([residual_std_err, residual_std_err])
-                y_upper = y_line + 1.96 * se_pred
-                y_lower = y_line - 1.96 * se_pred
+                # Adjust endpoints to account for violin slot width and gap
+                x_line = visual_x_vals.copy()
+                x_line[0] = x_line[0] + (slot / 2.0) + slope_gap
+                x_line[-1] = x_line[-1] - (slot / 2.0) - slope_gap
+                
+                # Fallback if gap parameter forces endpoints to cross
+                if x_line[-1] <= x_line[0]:
+                    x_line[0] = visual_x_vals[0] + (slot / 2.0) + 0.05
+                    x_line[-1] = visual_x_vals[-1] - (slot / 2.0) - 0.05
 
-                ax.plot(x_line, y_line, color=color, linewidth=2.8, alpha=1.0, zorder=10, solid_capstyle='round')
-                ax.fill_between(x_line, y_lower, y_upper, color=color, alpha=0.18, zorder=9)
+                ax.plot(x_line, y_means, color=color, linewidth=2.8, alpha=1.0, zorder=10, solid_capstyle='round')
 
     # Apply overlay function across all subplots automatically
     g.map_dataframe(overlay_elements)
@@ -1970,3 +1962,103 @@ def plot_violin_with_slopes(
         g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
 
     plt.show()
+
+
+def plot_slopes(
+    data,
+    x_col,
+    y_col,
+    hue_var,
+    facet_row,
+    facet_col,
+    facet_aspect=1.0,
+    facet_height=4.5,
+    y_lim = (-100,150),
+    save_path='../figures/violin_with_slopes.png',
+    dpi=300
+):
+
+
+    data = data.copy()
+
+    # Drop unused facet subsets
+    if facet_row is None:
+        data[' '] = ' '
+        facet_row = ' '
+    else:
+        data[facet_row] = data[facet_row].cat.remove_unused_categories()
+        
+    if facet_col is None:
+        data[' '] = ' '
+        facet_col = ' '
+    else:
+        data[facet_col] = data[facet_col].cat.remove_unused_categories()
+
+    sns.set_theme(style="whitegrid")
+    
+    # Initialize Grid
+    g = sns.FacetGrid(
+        data,
+        col=facet_col,
+        row=facet_row,
+        height=facet_height,
+        aspect=facet_aspect,
+        margin_titles=True
+    )
+
+    # y lims
+    g.set(ylim=y_lim)
+
+
+    # scatterplot
+    g.map_dataframe(
+        sns.stripplot,
+        x=x_col,
+        y=y_col,
+        hue=hue_var,
+        palette=TARGET_PALETTE,
+        dodge=True,
+        jitter=0.15,
+        alpha=0.2,
+        size=3
+    )
+
+    
+    # violins
+    g.map_dataframe(
+        sns.violinplot,
+        x=x_col,
+        y=y_col,
+        hue=hue_var,
+        palette=TARGET_PALETTE,
+        inner=None,
+        dodge=True,
+        width=0.8,
+        alpha=0.1,
+        gap=0.1
+    )
+
+    # mean & slopes pointplot
+    g.map_dataframe(
+        sns.pointplot, 
+        x=x_col, 
+        y=y_col,
+        hue=hue_var,
+        palette=TARGET_PALETTE,
+        dodge=True,
+        markersize=5
+    )
+
+
+    # add ticks every 25 units
+    y_ticks = np.arange(y_lim[0], y_lim[1] + 1, 25) 
+    for ax in g.axes.flat:
+        ax.set_yticks(y_ticks)
+
+    if save_path:
+        g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
+
+    g.add_legend()
+    plt.show()
+
+    

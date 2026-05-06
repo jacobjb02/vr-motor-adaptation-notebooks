@@ -6,6 +6,18 @@ import seaborn.objects as so
 import matplotlib.pyplot as plt 
 
 
+
+# Global static color mapping for targets
+_colors = sns.color_palette(["#FF0000", "#0000FF", "#FF4500", "#05472A"])
+TARGET_PALETTE = {
+    "L60": _colors[3], # Green
+    "L30": _colors[2], # Blue
+    "R30":   _colors[1], # Orange
+    "R60":   _colors[0]  # Red
+}
+
+
+
 def bootstrap_by_groups(
     data,
     group_cols,
@@ -71,20 +83,6 @@ def bootstrap_by_groups(
     return pd.DataFrame(results)
 
 
-
-
-
-
-
-
-# Global static color mapping for targets
-_colors = sns.color_palette("bright", 4)
-TARGET_PALETTE = {
-    "L60": _colors[2],  # Green
-    "L30": _colors[0],  # Blue
-    "R30": _colors[1],  # Orange
-    "R60": _colors[3],  # Red
-}
 
 def plot_bootstrap_cis(
     ci_df,

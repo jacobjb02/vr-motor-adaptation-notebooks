@@ -3,25 +3,26 @@ import numpy as np
 import pandas as pd
 
 
-def early_late_phase(df, group_cols, phase_col, phases_to_keep, trial_col, n_trials):
-    """
-    Identifies early and late trials within each experimental phase
-    """
-    df = df[df[phase_col].isin(phases_to_keep)].copy()
-    
-    is_early = df[trial_col] <= n_trials
 
-    group_max = df.groupby(group_cols + [phase_col], observed=True)[trial_col].transform('max')
-    is_late = (df[trial_col] > (group_max - n_trials)) & (~is_early)
+def early_late_phase_new(df, group_cols, phase_col, phases_to_keep, trial_col, n_trials):
+    df = df[df[phase_col].isin(phases_to_keep)].copy()
+    df = df.sort_values(by=group_cols + [trial_col] + [phase_col])
     
-    conditions = [is_early, is_late]
+    # Group once and count row positions from front and back
+    grp = df.groupby(group_cols + [phase_col])
+    
+    conditions = [
+        grp.cumcount() < n_trials, # early trials
+        grp.cumcount(ascending=False) < n_trials   # late trials
+    ]
     choices = ['early', 'late']
     
     df['trial_set'] = np.select(conditions, choices, default='mid')
-
+    
     result_df = df[df['trial_set'] != 'mid'].copy()
-
+    
     return result_df
+
 
 
 
