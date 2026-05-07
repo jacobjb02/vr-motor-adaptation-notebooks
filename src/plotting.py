@@ -157,14 +157,12 @@ def plot_all_trials(
         estimator='mean',
         context='notebook',
         marker_size=2,
-        font_scale=3,
+        font_scale=1,
         save_path='../figures/all_trials.png',
         dpi=300
     ):
-    """
-    Plots individual and mean sensorimotor traces across facets,
-    with optional horizontal reference lines based on successful 'hit' trials.
-    """
+
+    
     data = data.copy()
     data[x_col] = data[x_col].astype(float)
 
@@ -348,7 +346,7 @@ def plot_all_trials(
                                 ax.plot(
                                     seg[x_col], seg['mean'],
                                     marker='o', markersize=marker_size,
-                                    linewidth=3.5, color=color, alpha=0.80,
+                                    linewidth=2.0, color=color, alpha=0.80,
                                     linestyle=current_linestyle
                                 )
                                 ax.fill_between(
@@ -358,7 +356,7 @@ def plot_all_trials(
                                     alpha=0.25, color=color, linewidth=0
                                 )
 
-    g.fig.set_size_inches(27, 23.5)
+    g.fig.set_size_inches(15, 10)
 
     # --- AXIS FORMATTING & REFERENCE LINES ---
     visible_bottom_axes = {}
@@ -410,10 +408,10 @@ def plot_all_trials(
 
     for ax in visible_bottom_axes.values():
         ax.xaxis.set_tick_params(labelbottom=True)
-        ax.set_xlabel(x_col)
+        ax.set_xlabel(x_col, fontsize=11, fontweight='bold')
     for ax in visible_left_axes.values():
         ax.yaxis.set_tick_params(labelleft=True)
-        ax.set_ylabel(y_col)
+        ax.set_ylabel(y_col, fontsize=11, fontweight='bold')
 
     # --- LEGEND ---
     handles = []
@@ -430,15 +428,16 @@ def plot_all_trials(
         g.fig.legend(handles=handles, title="Targets & Conditions", loc="center left",
                      bbox_to_anchor=(0.88, 0.5), frameon=True)
 
-    g.fig.subplots_adjust(right=0.82, bottom=0.2, left=0.1, wspace=0.1)
-    if save_path:
-        g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
-
     # vertical lines
     if vertical_list:
         for v in vertical_list:
             g.map(plt.axvline, x=v, color='black', linestyle='--', linewidth=2.5, alpha=0.7)
 
+
+    g.fig.subplots_adjust(right=0.82, bottom=0.2, left=0.1, wspace=0.1)
+    if save_path:
+        g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
+        
     plt.show()
     return g
 
@@ -1414,7 +1413,7 @@ from matplotlib.cm import ScalarMappable
 def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet_col=None, facet_row=None, 
                  style_col=None, mode='correlation', dark=True, font_scale=1.2, 
                  show_legend=True, show_mean_line=False, mean_line_color=None, 
-                 colour_type='auto', palette='plasma', save_path='../figures/heatmap.svg', dpi=300): 
+                 colour_type='auto', palette=['black','#D7191C'], save_path='../figures/heatmap.png', dpi=300): 
 
     data = data.copy().reset_index(drop=True)
     
@@ -1426,11 +1425,10 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
         data = data.dropna(subset=[facet_row])
 
 
-    # Add near top, after dropna
-    if colour_type == "categorical":
-        levels = list(pd.unique(data[colour_col]))
-        if len(levels) >= 2:
-            palette = {levels[0]: "blue", levels[1]: "white"}
+    # if colour_type == "categorical":
+    #     levels = list(pd.unique(data[colour_col]))
+    #     if len(levels) >= 2:
+    #         palette = {levels[0]: "blue", levels[1]: "white"}
 
     
     if mean_line_color is None:
@@ -1971,6 +1969,8 @@ def plot_slopes(
     hue_var,
     facet_row,
     facet_col,
+    hit_col='target_hit',
+    ref_range_col='signed_euclidean_cm',
     facet_aspect=1.0,
     facet_height=4.5,
     y_lim = (-100,150),
@@ -1994,6 +1994,19 @@ def plot_slopes(
     else:
         data[facet_col] = data[facet_col].cat.remove_unused_categories()
 
+    # --- Identify Hit-Based Reference Range ---
+    hit_min, hit_max = None, None
+    if hit_col and ref_range_col and hit_col in data.columns and ref_range_col in data.columns:
+        hit_values = data[data[hit_col] == 'True'][ref_range_col].dropna()
+        if not hit_values.empty:
+            hit_min = hit_values.min()
+            hit_max = hit_values.max()
+
+    print('hit min', hit_min)
+    print('hit max', hit_max)
+
+
+    # facet style
     sns.set_theme(style="whitegrid")
     
     # Initialize Grid
@@ -2054,6 +2067,19 @@ def plot_slopes(
     y_ticks = np.arange(y_lim[0], y_lim[1] + 1, 25) 
     for ax in g.axes.flat:
         ax.set_yticks(y_ticks)
+
+        # Plot Hit-Based Reference Lines
+        if hit_min is not None and hit_max is not None:
+            ax.axhspan(
+                ymin=hit_min,
+                ymax=hit_max,
+                color='green',
+                alpha=0.1,
+                zorder=0
+            )
+            ax.axhline(y=hit_min, color='green', linestyle='--', alpha=0.3, lw=1.0, zorder=0)
+            ax.axhline(y=hit_max, color='green', linestyle='--', alpha=0.3, lw=1.0, zorder=0)
+
 
     if save_path:
         g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
