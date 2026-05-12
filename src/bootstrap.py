@@ -16,6 +16,73 @@ TARGET_PALETTE = {
     "R60":   _colors[0]  # Red
 }
 
+def run_bootstrap(
+    data,
+    x_col,
+    y_col,
+    n_resamples=9999,
+    group_cols=[],
+):
+
+    group_cols = group_cols + x_col
+
+    results = []
+    
+    # Iterate through each group 
+    for name, group in data.groupby(group_cols):
+        # Convert the y-values to a 1D array for SciPy 
+        group_data = (group[y_col].to_numpy(),)
+        
+        # SciPy bootstrap
+        res = stats.bootstrap(
+            group_data, 
+            np.mean, 
+            confidence_level=0.95, 
+            n_resamples=n_resamples, 
+            method='percentile',
+            random_state=1
+        )
+        
+        # Store the results
+        results.append({
+            'group': name,
+            'mean': np.mean(group_data),
+            'ci_low': res.confidence_interval.low,
+            'ci_high': res.confidence_interval.high
+        })
+    
+    # Turn it back into a clean df
+    df_bootstrapped = pd.DataFrame(results)
+
+    return df_bootstrapped
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def bootstrap_by_groups(
@@ -38,6 +105,7 @@ def bootstrap_by_groups(
     grouped = df.groupby(list(group_cols) + [x_col], dropna=False,  observed=True)
 
     for keys, group in grouped:
+
         y = group[y_col].to_numpy()
 
         # Skip empty groups (shouldn't happen after dropna)
