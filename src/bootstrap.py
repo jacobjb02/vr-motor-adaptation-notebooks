@@ -18,24 +18,18 @@ TARGET_PALETTE = {
 
 def run_bootstrap(
     data,
-    x_col,
     y_col,
-    n_resamples=9999,
-    group_cols=[],
+    n_resamples=9999
 ):
-
-    group_cols = group_cols + x_col
 
     results = []
     
-    # Iterate through each group 
-    for name, group in data.groupby(group_cols):
-        # Convert the y-values to a 1D array for SciPy 
-        group_data = (group[y_col].to_numpy(),)
+    # Convert the y-values to a 1D array for SciPy 
+    data_y = (data[y_col].to_numpy(),)
         
-        # SciPy bootstrap
-        res = stats.bootstrap(
-            group_data, 
+    # SciPy bootstrap
+    res = stats.bootstrap(
+            data_y, 
             np.mean, 
             confidence_level=0.95, 
             n_resamples=n_resamples, 
@@ -43,10 +37,9 @@ def run_bootstrap(
             random_state=1
         )
         
-        # Store the results
-        results.append({
-            'group': name,
-            'mean': np.mean(group_data),
+    # Store the results
+    results.append({
+            'mean': np.mean(data_y),
             'ci_low': res.confidence_interval.low,
             'ci_high': res.confidence_interval.high
         })
