@@ -12,6 +12,7 @@ from matplotlib.colors import Normalize
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import TwoSlopeNorm, Normalize
 import matplotlib.lines as mlines
+import scipy.stats as stats
 
 # Global static color mapping for targets
 _colors = sns.color_palette(["#FF0000", "#0000FF", "#FF4500", "#05472A"])
@@ -50,6 +51,9 @@ def plot_trial_schedule(
 
     # set axis labels
     g.set_axis_labels('Trial Number', 'Water State')
+
+    # set figure size
+    g.fig.set_size_inches(10, 4)
     
     # save figure
     if save_path:
@@ -119,8 +123,6 @@ def plot_baseline(
     # make trial numbers integers
     for ax in g.axes.flat:
         ax.xaxis.set_major_locator(mticker.MaxNLocator(integer=True))
-
-    g.fig.set_size_inches(14, 7)   # width, height in inches
     
     # save figure
     if save_path:
@@ -308,7 +310,7 @@ def plot_all_trials(
         groupby_cols = [x_col, target_col, '_phase_id', '_no_connect_key']
         if cond_col and cond_col in facet_data.columns:
             groupby_cols.insert(2, cond_col)  # after target_col
-
+        
         grouped = (
             facet_data
             .dropna(subset=[y_col])
@@ -318,15 +320,27 @@ def plot_all_trials(
         )
         grouped.columns = groupby_cols + ['mean', 'sem', 'count']
         grouped['sem'] = grouped['sem'].fillna(0)
-
+        
+        # Calculate the 95% CI 
+        # Degrees of freedom is count - 1. Use np.maximum to avoid negative df.
+        degrees_of_freedom = np.maximum(grouped['count'] - 1, 0)
+        
+        # Get the t-critical value. Returns NaN where df=0; replace with 0.
+        t_crit = stats.t.ppf(0.975, degrees_of_freedom)
+        t_crit = np.nan_to_num(t_crit, nan=0.0)
+        
+        # Compute the margin
+        grouped['ci_margin'] = t_crit * grouped['sem']
+        
+        # 3. Plotting loop
         for target_label in labels:
             color = TARGET_PALETTE[target_label]
-
+        
             if cond_col and cond_col in grouped.columns:
                 cond_vals = grouped[cond_col].dropna().unique()
             else:
                 cond_vals = [None]
-
+        
             for cond_val in cond_vals:
                 current_linestyle = cond_style_dict.get(cond_val, '-')
                 if cond_val is None:
@@ -336,7 +350,7 @@ def plot_all_trials(
                         (grouped[target_col] == target_label) &
                         (grouped[cond_col] == cond_val)
                     ]
-
+        
                 if len(target_data) > 0:
                     for phase_id in target_data['_phase_id'].unique():
                         phase_subset = target_data[target_data['_phase_id'] == phase_id]
@@ -346,17 +360,18 @@ def plot_all_trials(
                                 ax.plot(
                                     seg[x_col], seg['mean'],
                                     marker='o', markersize=marker_size,
-                                    linewidth=2.0, color=color, alpha=0.80,
+                                    linewidth=1.0, color=color, alpha=0.80,
                                     linestyle=current_linestyle
                                 )
+                                # 4. ci_margin
                                 ax.fill_between(
                                     seg[x_col],
-                                    seg['mean'] - seg['sem'],
-                                    seg['mean'] + seg['sem'],
+                                    seg['mean'] - seg['ci_margin'],
+                                    seg['mean'] + seg['ci_margin'],
                                     alpha=0.25, color=color, linewidth=0
                                 )
 
-    g.fig.set_size_inches(15, 10)
+    g.fig.set_size_inches(10, 8)
 
     # --- AXIS FORMATTING & REFERENCE LINES ---
     visible_bottom_axes = {}
@@ -398,10 +413,10 @@ def plot_all_trials(
                 ax.axhline(y=global_mean - global_sd, color='red', linestyle=':', alpha=0.4, lw=3)
 
             for span_start, span_end in inactive_spans:
-                ax.axvspan(span_start, span_end, color='gray', alpha=0.15, zorder=0, lw=0)
+                ax.axvspan(span_start-0.5, span_end-0.5, color='gray', alpha=0.15, zorder=0, lw=0)
 
             for t_x in transition_trials:
-                ax.axvline(x=t_x, color='gray', linestyle='--', alpha=0.7, zorder=0)
+                ax.axvline(x=t_x-0.5, color='gray', linestyle='--', alpha=0.7, zorder=0)
 
             ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5, integer=True))
             ax.xaxis.get_major_formatter().set_scientific(False)
@@ -431,7 +446,7 @@ def plot_all_trials(
     # vertical lines
     if vertical_list:
         for v in vertical_list:
-            g.map(plt.axvline, x=v, color='black', linestyle='--', linewidth=2.5, alpha=0.7)
+            g.map(plt.axvline, x=v, color='black', linestyle='--', linewidth=1.0, alpha=0.7)
 
 
     g.fig.subplots_adjust(right=0.82, bottom=0.2, left=0.1, wspace=0.1)
@@ -2079,6 +2094,8 @@ def plot_slopes(
             )
             ax.axhline(y=hit_min, color='green', linestyle='--', alpha=0.3, lw=1.0, zorder=0)
             ax.axhline(y=hit_max, color='green', linestyle='--', alpha=0.3, lw=1.0, zorder=0)
+
+    g.fig.set_size_inches(6, 8)
 
 
     if save_path:
