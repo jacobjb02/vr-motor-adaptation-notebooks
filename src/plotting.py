@@ -1329,14 +1329,17 @@ def plot_min_x_z(data,
                  r_col,
                  show_target=False,      
                  show_slopes=False,
+                 show_orthogonal=False,
                  slope_array=None,
                  target_x_array=None,
                  hue_col='water_speed_binary',
-                 context='poster',
+                 y_lim=[0,250],
+                 x_lim=[-100,25],
+                 context='notebook',
                  font_scale=1.0,
                  facet_height=6.0,
                  facet_aspect=1.0,
-                 save_path='../figures/PCA_slopes.svg',
+                 save_path='../figures/PCA_slopes.png',
                  dpi=300
                 ):
 
@@ -1353,7 +1356,7 @@ def plot_min_x_z(data,
 
     with sns.plotting_context(context=context, font_scale=font_scale):
         sns.set_style("whitegrid")
-
+        
         g = sns.relplot(
             data=data,
             x='min_pos_from_target_x_cm',  
@@ -1366,14 +1369,19 @@ def plot_min_x_z(data,
             height=facet_height,
             aspect=facet_aspect,
             alpha=0.2,
-            s=500.0,
-            legend="brief",
+            s=75.0,
+            legend=False,
             facet_kws={'sharex': True, 'sharey': True}
         )
+
+        # set axis limits
+        g.set(ylim=y_lim, xlim=x_lim)
 
         # Match trial_trajectory grid thickness
         for ax in g.axes.flat:
             ax.grid(True, linewidth=3.0)
+            
+            ax.set_aspect('equal')
 
         # Handle Slopes and Targets
         if show_slopes or show_target:
@@ -1389,7 +1397,7 @@ def plot_min_x_z(data,
                     if show_target:
                         ax.scatter(
                             target_x, target_z,
-                            s=1500,
+                            s=750,
                             facecolors='none',
                             edgecolors='red',
                             linewidth=5,
@@ -1397,6 +1405,7 @@ def plot_min_x_z(data,
                         )
 
                     if show_slopes and slope_array is not None:
+                        # prinicipal component
                         slope_deg = slope_array[row_idx, col_idx]
                         slope_val = np.tan(np.deg2rad(slope_deg))
 
@@ -1408,8 +1417,25 @@ def plot_min_x_z(data,
                             linewidth=5,
                             alpha=0.6
                         )
+                        
+                    if show_orthogonal:
+                        # orthogonal axis
+                        orthogonal_slope = slope_deg + 90
+                        orthogonal_val = np.tan(np.deg2rad(orthogonal_slope))
+                        
+                        ax.axline(
+                            xy1=(target_x, target_z),
+                            slope=orthogonal_val,
+                            color='grey',
+                            linestyle='--',
+                            linewidth=5,
+                            alpha=0.6
+                        )
+                        
 
                     ax.set_aspect('equal')
+
+       # g.fig.set_size_inches(14, 8)
 
         g.set_axis_labels(x_col_title, y_col_title)
         g.set_titles(col_template="{col_name}", row_template="{row_name}")
