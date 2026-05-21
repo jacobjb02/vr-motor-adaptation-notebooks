@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 
+import matplotlib.pyplot as plt
+
 """
 Selecting, filtering, and cleaning data.
 """
@@ -190,7 +192,7 @@ def remove_baseline_outlier_trials_threshold_sd(data,
     return cleaned_data
 
 
-def remove_outliers_per_trial(data, y_col, trial_col, water_col, target_col, sd_error_threshold=3.0):
+def remove_outliers_per_trial(data, y_col, trial_col, water_col, target_col, phase_col, sd_error_threshold=3.0):
 
     # Calculate mean and sd FOR EACH TRIAL across the dataset
     trial_means = data.groupby([trial_col, water_col, target_col], observed=True)[y_col].transform('mean')
@@ -201,6 +203,18 @@ def remove_outliers_per_trial(data, y_col, trial_col, water_col, target_col, sd_
     
     # Define mask: True if deviation exceeds the trial's specific threshold
     is_outlier = deviation > (sd_error_threshold * trial_sds)
+
+    # check for plotting
+    data['is_outlier'] = deviation > (sd_error_threshold * trial_sds)
+
+    outlier_summary = (
+        data[data['is_outlier']]
+        .groupby([phase_col, trial_col], observed=True)
+        .size()
+        .reset_index(name='removed_count')
+    )
+
+    print(outlier_summary)
     
     # Logging
     outlier_count = is_outlier.sum()
@@ -211,5 +225,9 @@ def remove_outliers_per_trial(data, y_col, trial_col, water_col, target_col, sd_
     
     # Return cleaned dataframe
     cleaned_data = data[~is_outlier].copy()
+
+    # show where outliers
+    plt.scatter(data['trial_num'], data['is_outlier'])
+    plt.show()
     
     return cleaned_data

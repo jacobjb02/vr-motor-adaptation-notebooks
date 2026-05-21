@@ -2038,14 +2038,13 @@ def plot_slopes(
     # --- Identify Hit-Based Reference Range ---
     hit_min, hit_max = None, None
     if hit_col and ref_range_col and hit_col in data.columns and ref_range_col in data.columns:
-        hit_values = data[data[hit_col] == 'True'][ref_range_col].dropna()
+        hit_values = data[data[hit_col]=='True'][ref_range_col].dropna()
         if not hit_values.empty:
             hit_min = hit_values.min()
             hit_max = hit_values.max()
 
     print('hit min', hit_min)
     print('hit max', hit_max)
-
 
     # facet style
     sns.set_theme(style="whitegrid")
