@@ -2104,12 +2104,12 @@ def plot_slopes(
 
 
     # add ticks every 25 units
-    y_ticks = np.arange(y_lim[0], y_lim[1] + 1, 25) 
-    for ax in g.axes.flat:
-        ax.set_yticks(y_ticks)
+    # y_ticks = np.arange(y_lim[0], y_lim[1] + 1, 25) 
+    # for ax in g.axes.flat:
+    #     ax.set_yticks(y_ticks)
 
-        # Plot Hit-Based Reference Lines
-        if hit_min is not None and hit_max is not None:
+    # Plot Hit-Based Reference Lines
+    if hit_min is not None and hit_max is not None:
             ax.axhspan(
                 ymin=hit_min,
                 ymax=hit_max,
@@ -2119,6 +2119,9 @@ def plot_slopes(
             )
             ax.axhline(y=hit_min, color='green', linestyle='--', alpha=0.3, lw=1.0, zorder=0)
             ax.axhline(y=hit_max, color='green', linestyle='--', alpha=0.3, lw=1.0, zorder=0)
+
+        # show zero line
+    g.refline(y=0.0, color='black', linestyle='--', alpha=0.3, linewidth=1.3, zorder=1)
 
     g.fig.set_size_inches(6, 8)
 

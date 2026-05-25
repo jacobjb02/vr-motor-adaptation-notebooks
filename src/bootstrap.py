@@ -19,35 +19,63 @@ TARGET_PALETTE = {
 def run_bootstrap(
     data,
     y_col,
+    group_cols=None,
     n_resamples=9999
 ):
 
     results = []
-    
-    # Convert the y-values to a 1D array for SciPy 
-    data_y = (data[y_col].to_numpy(),)
-        
-    # SciPy bootstrap
-    res = stats.bootstrap(
-            data_y, 
-            np.mean, 
-            confidence_level=0.95, 
-            n_resamples=n_resamples, 
-            method='percentile',
-            random_state=1
-        )
-        
-    # Store the results
-    results.append({
-            'mean': np.mean(data_y),
-            'ci_low': res.confidence_interval.low,
-            'ci_high': res.confidence_interval.high
-        })
-    
-    # Turn it back into a clean df
-    df_bootstrapped = pd.DataFrame(results)
 
-    return df_bootstrapped
+
+    if group_cols != None:
+
+        for name, group in data.groupby(group_cols, observed=True):
+    
+            # Convert the y-values to a 1D array for SciPy 
+            y_data = group[y_col].to_numpy()
+                    
+                    
+            # SciPy bootstrap
+            res = stats.bootstrap(
+                        (y_data,), 
+                        np.mean, 
+                        confidence_level=0.95, 
+                        n_resamples=n_resamples, 
+                        method='percentile',
+                        random_state=1
+                    )
+                
+            # Store the results
+            results.append({
+                    'group':name,
+                    'mean': np.mean(y_data),
+                    'ci_low': res.confidence_interval.low,
+                    'ci_high': res.confidence_interval.high
+                })
+
+    else:
+            # Convert the y-values to a 1D array for SciPy 
+            y_data = data[y_col].to_numpy()
+                    
+                    
+            # SciPy bootstrap
+            res = stats.bootstrap(
+                        (y_data,), 
+                        np.mean, 
+                        confidence_level=0.95, 
+                        n_resamples=n_resamples, 
+                        method='percentile',
+                        random_state=1
+                    )
+                
+            # Store the results
+            results.append({
+                    'mean': np.mean(y_data),
+                    'ci_low': res.confidence_interval.low,
+                    'ci_high': res.confidence_interval.high
+                })
+
+
+    return pd.DataFrame(results)
     
 
 
