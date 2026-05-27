@@ -23,6 +23,8 @@ def baseline_correct(data, phase_col, baseline_string, y_col, PCA_col,
     
     # Subtract y_col baseline from y_col
     df_merged[f"{y_col}_mean_bc"] = df_merged[y_col] - df_merged[f"{y_col}_mean"]
+    print(df_merged.groupby(['target_x_label'])[f"{y_col}_mean"].mean())
+    
     df_merged[f"{y_col}_median_bc"] = df_merged[y_col] - df_merged[f"{y_col}_median"]
     
     # Subtract PCA_col baseline from PCA_col
