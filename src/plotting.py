@@ -297,12 +297,12 @@ def plot_all_trials(
                     seg = target_unit[target_unit['_no_connect_key'] == cat_val].sort_values(x_col)
                     mask = seg[y_col].notna()
                     if mask.any():
-                        ax.scatter(
+                        ax.plot(
                             seg.loc[mask, x_col],
                             seg.loc[mask, y_col],
                             color=color,
-                            alpha=0.3,
-                            linewidth=1.0
+                            alpha=0.1,
+                            linewidth=0.5
                         )
 
     # 2. Plot Mean + SE
@@ -332,9 +332,9 @@ def plot_all_trials(
         # Compute the margin
         grouped['ci_margin'] = t_crit * grouped['sem']
 
-        # mask = grouped['count'] < 5
-        # grouped.loc[mask, 'mean'] = np.nan
-        # grouped.loc[mask, 'ci_margin'] = np.nan
+        mask = grouped['count'] < 3
+        grouped.loc[mask, 'mean'] = np.nan
+        grouped.loc[mask, 'ci_margin'] = np.nan
         
         # 3. Plotting loop
         for target_label in labels:
@@ -364,7 +364,7 @@ def plot_all_trials(
                                 ax.plot(
                                     seg[x_col], seg['mean'],
                                     marker='o', markersize=marker_size,
-                                    linewidth=0.0, color=color, alpha=0.80,
+                                    linewidth=1.0, color=color, alpha=0.80,
                                     linestyle=current_linestyle
                                 )
                                 # 4. ci_margin
@@ -372,7 +372,7 @@ def plot_all_trials(
                                     seg[x_col],
                                     seg['mean'] - seg['ci_margin'],
                                     seg['mean'] + seg['ci_margin'],
-                                    alpha=0.00, color=color, linewidth=0
+                                    alpha=0.25, color=color, linewidth=0
                                 )
 
     g.fig.set_size_inches(10, 8)
