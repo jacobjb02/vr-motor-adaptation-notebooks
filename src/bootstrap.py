@@ -29,28 +29,29 @@ def run_bootstrap(
     if group_cols != None:
 
         for name, group in data.groupby(group_cols, observed=True):
+            
+            # print(len(name))
     
             # Convert the y-values to a 1D array for SciPy 
             y_data = group[y_col].to_numpy()
-                    
                     
             # SciPy bootstrap
             res = stats.bootstrap(
                         (y_data,), 
                         np.mean, 
-                        confidence_level=0.95, 
+                        confidence_level=0.99, 
                         n_resamples=n_resamples, 
                         method='percentile',
                         random_state=1
                     )
-                
+
             # Store the results
             results.append({
-                    'group':name,
-                    'mean': np.mean(y_data),
-                    'ci_low': res.confidence_interval.low,
-                    'ci_high': res.confidence_interval.high
-                })
+                        'group_name':name,
+                        'mean': np.mean(y_data),
+                        'ci_low': res.confidence_interval.low,
+                        'ci_high': res.confidence_interval.high
+                    })
 
     else:
             # Convert the y-values to a 1D array for SciPy 
@@ -61,7 +62,7 @@ def run_bootstrap(
             res = stats.bootstrap(
                         (y_data,), 
                         np.mean, 
-                        confidence_level=0.95, 
+                        confidence_level=0.99, 
                         n_resamples=n_resamples, 
                         method='percentile',
                         random_state=1
@@ -73,9 +74,23 @@ def run_bootstrap(
                     'ci_low': res.confidence_interval.low,
                     'ci_high': res.confidence_interval.high
                 })
+    
+    results_df = pd.DataFrame(results)
 
+    # Convert group_name into separate columns
+    if group_cols is not None:
+        if len(group_cols) == 1:
+            # Grouping by 1 column returns scalars
+            results_df[group_cols[0]] = results_df['group_name']
+        else:
+            # Grouping by multiple columns returns tuples. Expand them into a DataFrame.
+            expanded_cols = pd.DataFrame(results_df['group_name'].tolist(), index=results_df.index)
+            results_df[group_cols] = expanded_cols
+        
+        # Clean up the intermediate column
+        results_df = results_df.drop(columns=['group_name'])
 
-    return pd.DataFrame(results)
+    return results_df
     
 
 

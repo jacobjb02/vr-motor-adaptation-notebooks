@@ -134,11 +134,8 @@ def plot_baseline(
     return g
 
 
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-import matplotlib.lines as mlines
+from scipy import stats
+
 def plot_all_trials(
         data,
         cond_col,
@@ -146,10 +143,10 @@ def plot_all_trials(
         row_col,
         col_col,
         target_col,
-        hit_col=None,          # Boolean column to filter for successful hits
-        ref_range_col=None,    # Column to extract min/max hit values from
+        hit_col=None,          
+        ref_range_col=None,    
         transition_col=None,
-        no_connect_col=None,
+        no_connect_col=None,   
         show_sd_line=False,
         show_zero_line=False,
         y_col='baseline_corrected_dist',
@@ -164,7 +161,6 @@ def plot_all_trials(
         dpi=300
     ):
 
-    
     data = data.copy()
     data[x_col] = data[x_col].astype(float)
 
@@ -243,8 +239,30 @@ def plot_all_trials(
     data['_units_composite'] = data[ppid_col].astype(str) + '_' + data['_phase_id'].astype(str)
     data['_units_composite'] = data.groupby(grouping_cols, observed=False)['_units_composite'].transform(lambda x: x.ffill().bfill())
 
-    if no_connect_col and no_connect_col in data.columns:
-        data['_no_connect_key'] = data[no_connect_col].astype(str)
+    # --- DYNAMIC NO_CONNECT_KEY GENERATION (EPOCH ISOLATION) ---
+    if no_connect_col:
+        no_connect_cols = [no_connect_col] if isinstance(no_connect_col, str) else list(no_connect_col)
+        valid_cols = [col for col in no_connect_cols if col in data.columns]
+        
+        if valid_cols:
+            # 1. Isolate the chronological schedule of states
+            sched = data[[x_col] + valid_cols].dropna().drop_duplicates().sort_values(x_col)
+            
+            # 2. Build the base state sequence string
+            sched['_state_key'] = sched[valid_cols[0]].astype(str)
+            for col in valid_cols[1:]:
+                sched['_state_key'] += '_' + sched[col].astype(str)
+                
+            # 3. Calculate chronological epochs (increments when the state combination changes over time)
+            sched['_epoch'] = (sched['_state_key'] != sched['_state_key'].shift(1)).cumsum()
+            
+            # 4. Map back to the main dataset
+            data = pd.merge(data, sched[[x_col] + valid_cols + ['_epoch', '_state_key']], on=[x_col] + valid_cols, how='left')
+            
+            # 5. Create final composite key ensuring temporal separation of identical states
+            data['_no_connect_key'] = data['_state_key'].astype(str) + '_epoch_' + data['_epoch'].astype(str)
+        else:
+            data['_no_connect_key'] = 'all'
     else:
         data['_no_connect_key'] = 'all'
 
@@ -309,7 +327,7 @@ def plot_all_trials(
     for ax, facet_data in axes_to_plot:
         groupby_cols = [x_col, target_col, '_phase_id', '_no_connect_key']
         if cond_col and cond_col in facet_data.columns:
-            groupby_cols.insert(2, cond_col)  # after target_col
+            groupby_cols.insert(2, cond_col)  
         
         grouped = (
             facet_data
@@ -322,14 +340,9 @@ def plot_all_trials(
         grouped['sem'] = grouped['sem'].fillna(0)
         
         # Calculate the 95% CI 
-        # Degrees of freedom is count - 1. Use np.maximum to avoid negative df.
         degrees_of_freedom = np.maximum(grouped['count'] - 1, 0)
-        
-        # Get the t-critical value. Returns NaN where df=0; replace with 0.
         t_crit = stats.t.ppf(0.975, degrees_of_freedom)
         t_crit = np.nan_to_num(t_crit, nan=0.0)
-        
-        # Compute the margin
         grouped['ci_margin'] = t_crit * grouped['sem']
 
         mask = grouped['count'] < 3
@@ -367,7 +380,6 @@ def plot_all_trials(
                                     linewidth=1.0, color=color, alpha=0.80,
                                     linestyle=current_linestyle
                                 )
-                                # 4. ci_margin
                                 ax.fill_between(
                                     seg[x_col],
                                     seg['mean'] - seg['ci_margin'],
@@ -386,8 +398,8 @@ def plot_all_trials(
         for j in range(ncols):
             ax = g.axes[i, j]
 
-            ax.xaxis.grid(False)  # Turn off vertical lines
-            ax.yaxis.grid(True)   # Ensure horizontal lines stay on
+            ax.xaxis.grid(False)  
+            ax.yaxis.grid(True)   
 
             if not ax.lines and not ax.collections:
                 ax.set_visible(False)
@@ -447,278 +459,14 @@ def plot_all_trials(
         g.fig.legend(handles=handles, title="Targets & Conditions", loc="center left",
                      bbox_to_anchor=(0.88, 0.5), frameon=True)
 
-    # vertical lines
     if vertical_list:
         for v in vertical_list:
             g.map(plt.axvline, x=v, color='black', linestyle='--', linewidth=1.0, alpha=0.7)
-
 
     g.fig.subplots_adjust(right=0.82, bottom=0.2, left=0.1, wspace=0.1)
     if save_path:
         g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
         
-    plt.show()
-    return g
-
-
-
-
-def plot_all_trials_scatter_with_slope(
-    data,
-    cond_col,
-    ppid_col,
-    row_col,
-    col_col,
-    target_col,  # still used for grouping unless you override with line_color_col
-    y_col='baseline_corrected_dist',
-    x_col='trial_num_target',
-    hit_col=None,
-    ref_range_col=None,
-    transition_col=None,
-    no_connect_col=None,
-    show_zero_line=False,
-    y_lim=(None, 110.0),
-    context='notebook',
-    marker_size=12,
-    font_scale=1.6,
-    alpha_points=0.25,
-    alpha_fit=0.95,
-    save_path='../figures/exposure_trials_scatter_with_slope.png',
-    dpi=300,
-    point_color_col=None,   
-    line_color_col=None,    
-):
-    """
-    Minimal-assumption version:
-    - Points colored by point_color_col (if provided)
-    - Lines colored by line_color_col (if provided)
-    - Grouping is still by target/cond/phase/no_connect unless you change group_cols
-    """
-
-    data = data.copy()
-    data[x_col] = pd.to_numeric(data[x_col], errors='coerce')
-    data[y_col] = pd.to_numeric(data[y_col], errors='coerce')
-
-    # --- Identify Hit-Based Reference Range ---
-    hit_min, hit_max = None, None
-    if hit_col and ref_range_col and hit_col in data.columns and ref_range_col in data.columns:
-        hit_values = data[data[hit_col].astype(str) == 'True'][ref_range_col].dropna()
-        if not hit_values.empty:
-            hit_min = hit_values.min()
-            hit_max = hit_values.max()
-
-    # --- Setup condition line styles ---
-    available_linestyles = ['-', '--', ':', '-.']
-    unique_conditions = data[cond_col].dropna().unique() if cond_col in data.columns else []
-    cond_style_dict = {
-        cond: available_linestyles[i % len(available_linestyles)]
-        for i, cond in enumerate(unique_conditions)
-    }
-
-    # --- Transition trials and inactive spans ---
-    transition_trials = []
-    inactive_spans = []
-
-    if transition_col and transition_col in data.columns:
-        schedule_df = (
-            data[[x_col, transition_col]]
-            .dropna(subset=[x_col])
-            .drop_duplicates()
-            .sort_values(x_col)
-            .reset_index(drop=True)
-        )
-
-        shifted_state = schedule_df[transition_col].shift(1)
-        is_transition = (schedule_df[transition_col] != shifted_state) & shifted_state.notna()
-        transition_trials = schedule_df.loc[is_transition, x_col].unique()
-
-        in_inactive_block = False
-        start_x = None
-        for _, row in schedule_df.iterrows():
-            val = row[transition_col]
-            x_val = row[x_col]
-            if val == 0 and not in_inactive_block:
-                start_x = x_val
-                in_inactive_block = True
-            elif val == 1 and in_inactive_block:
-                inactive_spans.append((start_x, x_val))
-                in_inactive_block = False
-        if in_inactive_block and len(schedule_df):
-            inactive_spans.append((start_x, schedule_df[x_col].max()))
-
-    # --- Phase id ---
-    if transition_col and transition_col in data.columns and cond_col in data.columns:
-        data['_phase_id'] = data[transition_col].astype(str) + '_cond_' + data[cond_col].astype(str)
-    elif transition_col and transition_col in data.columns:
-        data['_phase_id'] = data[transition_col].astype(str)
-    else:
-        data['_phase_id'] = '0'
-
-    if no_connect_col and no_connect_col in data.columns:
-        data['_no_connect_key'] = data[no_connect_col].astype(str)
-    else:
-        data['_no_connect_key'] = 'all'
-
-    # --- palettes for point and line color ---
-    def make_palette(col):
-        if col is None or col not in data.columns:
-            return {}
-        levels = list(pd.Series(data[col]).dropna().unique())
-        n = max(1, len(levels))
-        colors = sns.color_palette('tab10', n_colors=n)
-        return {lvl: colors[i % n] for i, lvl in enumerate(levels)}
-
-    point_palette = make_palette(point_color_col)
-    line_palette  = make_palette(line_color_col)
-
-    sns.set_context(context, font_scale=font_scale)
-    sns.set_theme(style="whitegrid")
-
-    g = sns.FacetGrid(
-        data,
-        row=row_col,
-        col=col_col,
-        sharex=True,
-        sharey=True,
-        margin_titles=True
-    )
-    g.set(ylim=y_lim)
-    g.fig.set_size_inches(12, 6)
-
-    # map axes -> facet data
-    axes_to_plot = []
-    if row_col or col_col:
-        for facet_key, ax in g.axes_dict.items():
-            if isinstance(facet_key, tuple):
-                row_val, col_val = facet_key
-            else:
-                row_val = facet_key
-                col_val = None
-
-            facet_data = data.copy()
-            if row_col and row_col in data.columns:
-                facet_data = facet_data[facet_data[row_col] == row_val]
-            if col_col and col_col in data.columns:
-                facet_data = facet_data[facet_data[col_col] == col_val]
-
-            axes_to_plot.append((ax, facet_data))
-    else:
-        axes_to_plot.append((g.ax, data))
-
-    # --- Scatter + slope lines ---
-    for ax, facet_data in axes_to_plot:
-        facet_data = facet_data.dropna(subset=[x_col, y_col])
-
-        if facet_data.empty:
-            ax.set_visible(False)
-            continue
-
-        group_cols = [target_col, cond_col, '_phase_id', '_no_connect_key']
-        for keys, sub in facet_data.groupby(group_cols, dropna=False):
-            target_val, cond_val, _, _ = keys
-
-            # point color
-            if point_color_col and point_color_col in sub.columns:
-                point_val = sub[point_color_col].iloc[0]
-                point_color = point_palette.get(point_val, 'gray')
-            else:
-                point_color = 'gray'
-
-            # line color
-            if line_color_col and line_color_col in sub.columns:
-                line_val = sub[line_color_col].iloc[0]
-                line_color = line_palette.get(line_val, 'gray')
-            else:
-                line_color = 'gray'
-
-            linestyle = cond_style_dict.get(cond_val, '-')
-
-            ax.scatter(
-                sub[x_col],
-                sub[y_col],
-                s=marker_size,
-                color=point_color,
-                alpha=alpha_points,
-                edgecolor='none'
-            )
-
-            x = sub[x_col].to_numpy(dtype=float)
-            y = sub[y_col].to_numpy(dtype=float)
-            valid = np.isfinite(x) & np.isfinite(y)
-            x, y = x[valid], y[valid]
-
-            if len(np.unique(x)) >= 2:
-                m, b = np.polyfit(x, y, 1)
-                xfit = np.array([np.nanmin(x), np.nanmax(x)])
-                yfit = m * xfit + b
-                ax.plot(
-                    xfit, yfit,
-                    color=line_color,
-                    linestyle=linestyle,
-                    linewidth=2.2,
-                    alpha=alpha_fit
-                )
-
-        # overlays
-        if hit_min is not None and hit_max is not None:
-            ax.axhspan(hit_min, hit_max, color='green', alpha=0.1, zorder=0)
-            ax.axhline(hit_min, color='green', linestyle='--', alpha=0.35, lw=1.0, zorder=0)
-            ax.axhline(hit_max, color='green', linestyle='--', alpha=0.35, lw=1.0, zorder=0)
-
-        if show_zero_line:
-            ax.axhline(0.0, color='black', linestyle='--', alpha=0.35)
-
-        for span_start, span_end in inactive_spans:
-            ax.axvspan(span_start, span_end, color='gray', alpha=0.15, zorder=0, lw=0)
-
-        for t_x in transition_trials:
-            ax.axvline(t_x, color='gray', linestyle='--', alpha=0.6, zorder=0)
-
-        ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5, integer=True))
-        ax.xaxis.get_major_formatter().set_scientific(False)
-        ax.set_xlabel(x_col)
-        ax.set_ylabel(y_col)
-
-    # --- legend: point colors + line colors + condition styles
-    handles = []
-
-    if point_palette:
-        for k, c in point_palette.items():
-            handles.append(
-                mlines.Line2D([], [], color=c, marker='o', linestyle='None',
-                              markersize=6, label=f"Point: {k}")
-            )
-
-    if line_palette:
-        for k, c in line_palette.items():
-            handles.append(
-                mlines.Line2D([], [], color=c, linestyle='-', linewidth=2.2,
-                              label=f"Line: {k}")
-            )
-
-    for cond_val, ls in cond_style_dict.items():
-        handles.append(
-            mlines.Line2D([], [], color='gray', linestyle=ls, linewidth=2.2,
-                          label=f"Cond slope: {cond_val}")
-        )
-
-    if hit_min is not None:
-        handles.append(mlines.Line2D([], [], color='green', linestyle='--', label='Hit Zone'))
-
-    if handles:
-        g.fig.legend(
-            handles=handles,
-            title="Legend",
-            loc="center left",
-            bbox_to_anchor=(0.88, 0.5),
-            frameon=True
-        )
-
-    g.fig.subplots_adjust(right=0.82, bottom=0.12, left=0.08, wspace=0.1)
-
-    if save_path:
-        g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
-
     plt.show()
     return g
 
