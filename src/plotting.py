@@ -1762,10 +1762,9 @@ def plot_slopes(
     hue_var,
     facet_row,
     facet_col,
-    hit_col='target_hit',
-    ref_range_col='signed_euclidean_cm',
-    facet_aspect=1.0,
-    facet_height=4.5,
+    hit_bounds = [-5.0, 5.0],
+    facet_aspect=0.75,
+    facet_height=3.5,
     y_lim = (-100,150),
     save_path='../figures/violin_with_slopes.png',
     dpi=300
@@ -1787,16 +1786,6 @@ def plot_slopes(
     else:
         data[facet_col] = data[facet_col].cat.remove_unused_categories()
 
-    # --- Identify Hit-Based Reference Range ---
-    hit_min, hit_max = None, None
-    if hit_col and ref_range_col and hit_col in data.columns and ref_range_col in data.columns:
-        hit_values = data[data[hit_col]=='True'][ref_range_col].dropna()
-        if not hit_values.empty:
-            hit_min = hit_values.min()
-            hit_max = hit_values.max()
-
-    print('hit min', hit_min)
-    print('hit max', hit_max)
 
     # facet style
     sns.set_theme(style="whitegrid")
@@ -1856,29 +1845,24 @@ def plot_slopes(
 
 
 #    add ticks every 25 units
-    y_ticks = np.arange(y_lim[0], y_lim[1] + 1, 5) 
+    y_ticks = np.arange(y_lim[0], y_lim[1] + 1, 25) 
     for ax in g.axes.flat:
         ax.set_yticks(y_ticks)
     
         # Plot Hit-Based Reference Lines
-        if hit_min is not None and hit_max is not None:
+        if hit_bounds is not None:
                 ax.axhspan(
-                    ymin=hit_min,
-                    ymax=hit_max,
+                    ymin=min(hit_bounds),
+                    ymax=max(hit_bounds),
                     color='green',
                     alpha=0.1,
                     zorder=0
                 )
-                ax.axhline(y=hit_min, color='green', linestyle='--', alpha=0.3, lw=1.0, zorder=0)
-                ax.axhline(y=hit_max, color='green', linestyle='--', alpha=0.3, lw=1.0, zorder=0)
+                ax.axhline(y=min(hit_bounds), color='green', linestyle='--', alpha=0.3, lw=1.0, zorder=0)
+                ax.axhline(y=max(hit_bounds), color='green', linestyle='--', alpha=0.3, lw=1.0, zorder=0)
 
         # show zero line
     g.refline(y=0.0, color='black', linestyle='--', alpha=0.3, linewidth=1.3, zorder=1)
-
-    # idxs = [-2,-1,1,2]
-    # for i in idxs:
-    #     g.refline(y=i, color='red', linestyle='--', alpha=0.3, linewidth=1.3, zorder=1)
-
     
     g.fig.set_size_inches(6, 8)
 
