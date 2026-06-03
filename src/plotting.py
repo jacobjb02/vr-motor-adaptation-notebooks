@@ -157,7 +157,7 @@ def plot_all_trials(
         context='notebook',
         marker_size=2,
         font_scale=1,
-        save_path='../figures/all_trials.svg',
+        save_path='../figures/all_trials.png',
         dpi=300
     ):
 
@@ -319,7 +319,7 @@ def plot_all_trials(
                             seg.loc[mask, x_col],
                             seg.loc[mask, y_col],
                             color=color,
-                            alpha=0.1,
+                            alpha=0.0,
                             linewidth=0.5
                         )
 
@@ -432,7 +432,7 @@ def plot_all_trials(
                 ax.axvspan(span_start-0.5, span_end-0.5, color='gray', alpha=0.15, zorder=0, lw=0)
 
             for t_x in transition_trials:
-                ax.axvline(x=t_x-0.5, color='gray', linestyle='--', alpha=0.7, zorder=0)
+                ax.axvline(x=t_x-0.5, color='gray', linestyle='--', alpha=0.0, zorder=0)
 
             ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5, integer=True))
             ax.xaxis.get_major_formatter().set_scientific(False)
@@ -1219,9 +1219,9 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
 
 
     # if colour_type == "categorical":
-    #     levels = list(pd.unique(data[colour_col]))
-    #     if len(levels) >= 2:
-    #         palette = {levels[0]: "blue", levels[1]: "white"}
+    #      levels = list(pd.unique(data[colour_col]))
+    #      if len(levels) >= 2:
+    #          palette = {levels[0]: "blue", levels[1]: "white"}
 
     
     if mean_line_color is None:
@@ -1246,7 +1246,7 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
             g = sns.relplot(
                 data=data, x=x_col, y=y_col,
                 style=style_col, col=facet_col, row=facet_row,
-                alpha=0.75, kind='scatter', s=90,
+                alpha=0.5, kind='scatter', s=90,
                 height=5, aspect=1.0, facet_kws={'margin_titles': True}
             )
             g.fig.set_facecolor("white")
@@ -1280,7 +1280,7 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
             g = sns.relplot(
                 data=data, x=x_col, y=y_col, hue=colour_col,
                 style=style_col, col=facet_col, row=facet_row,
-                palette=palette, alpha=0.65, kind='scatter', s=150,
+                palette=palette, alpha=0.5, kind='scatter', s=150,
                 height=6.5, aspect=0.82, facet_kws={'margin_titles': True}
             )
             g.fig.set_facecolor("white")
@@ -1324,21 +1324,22 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
             ax.set_facecolor("white")
             if dark:
                 ax.tick_params(colors=text_color)
+            # Explicitly set x-axis range and step increments
+            ax.set_xticks(range(-40, 101, 20))
+            ax.set_xlim(-40, 100)
 
                 
         
         g.set_axis_labels(x_col_title, y_col_title)
         plt.subplots_adjust(right=0.82, top=0.9)
 
-                 
+                     
         if save_path:
             g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight') 
         
         plt.show()
         
         return g
-
-
 
 
 def plot_early_late_exposure_with_slopes(
