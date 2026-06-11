@@ -1217,17 +1217,20 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
     if facet_row is not None:
         data = data.dropna(subset=[facet_row])
 
-
-    # if colour_type == "categorical":
-    #      levels = list(pd.unique(data[colour_col]))
-    #      if len(levels) >= 2:
-    #          palette = {levels[0]: "blue", levels[1]: "white"}
-
-    
     if mean_line_color is None:
         mean_line_color = "white" if dark else "black"
 
     sns.set_context("notebook", font_scale=font_scale)
+
+    # === DYNAMIC DIMENSION CALCULATION TO MATCH FIG 1 (12x6) ===
+    # Count unique facets to determine grid dimensions
+    num_cols = len(data[facet_col].unique()) if facet_col is not None else 1
+    num_rows = len(data[facet_row].unique()) if facet_row is not None else 1
+
+    # Back-calculate height and aspect for a hard target of 12" x 6"
+    calculated_height = 6.0 / num_rows
+    calculated_aspect = (12.0 / num_cols) / calculated_height
+    # ============================================================
 
     with sns.axes_style("darkgrid" if dark else "whitegrid", rc={
         "axes.facecolor": "white", "figure.facecolor": "white",
@@ -1242,12 +1245,12 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
             v_min, v_max = data[colour_col].min(), data[colour_col].max()
             norm = TwoSlopeNorm(vcenter=0.0, vmin=v_min, vmax=v_max) if v_min < 0 and v_max > 0 else plt.Normalize(vmin=v_min, vmax=v_max)
             
-          
             g = sns.relplot(
                 data=data, x=x_col, y=y_col,
                 style=style_col, col=facet_col, row=facet_row,
-                alpha=0.5, kind='scatter', s=90,
-                height=5, aspect=1.0, facet_kws={'margin_titles': True}
+                alpha=0.3, kind='scatter', s=90,
+                height=calculated_height, aspect=calculated_aspect, 
+                facet_kws={'margin_titles': True}
             )
             g.fig.set_facecolor("white")
             
@@ -1272,16 +1275,17 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
             sm.set_array([])
             cbar_ax = g.fig.add_axes([0.85, 0.2, 0.02, 0.6])
             cbar = g.fig.colorbar(sm, cax=cbar_ax)
-            cbar.set_label(colour_col, color=text_color)
-            cbar.ax.tick_params(colors=text_color)
+            cbar.set_label(colour_col, color='black')
+            cbar.ax.tick_params(colors='black')
         
         else:
             # ============= CATEGORICAL COLOR MAPPING =============
             g = sns.relplot(
                 data=data, x=x_col, y=y_col, hue=colour_col,
                 style=style_col, col=facet_col, row=facet_row,
-                palette=palette, alpha=0.5, kind='scatter', s=150,
-                height=6.5, aspect=0.82, facet_kws={'margin_titles': True}
+                palette=palette, alpha=0.3, kind='scatter', s=50,
+                height=calculated_height, aspect=calculated_aspect, 
+                facet_kws={'margin_titles': True}
             )
             g.fig.set_facecolor("white")
         
@@ -1323,16 +1327,16 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
         for ax in g.axes.flat:
             ax.set_facecolor("white")
             if dark:
-                ax.tick_params(colors=text_color)
-            # Explicitly set x-axis range and step increments
-            ax.set_xticks(range(-40, 101, 20))
-            ax.set_xlim(-40, 100)
-
-                
+                ax.tick_params(colors='black')
+            ax.set_xticks(range(-40, 121, 40))
+            ax.set_yticks(range(0,8, 1))
+            ax.set_ylim(0,7)
+            ax.set_xlim(-40, 120)
         
         g.set_axis_labels(x_col_title, y_col_title)
-        plt.subplots_adjust(right=0.82, top=0.9)
 
+        # Explicitly set total figure size layout to clean up margins
+        g.fig.set_size_inches(12, 6)
                      
         if save_path:
             g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight') 
@@ -1340,7 +1344,6 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
         plt.show()
         
         return g
-
 
 def plot_early_late_exposure_with_slopes(
     data,
