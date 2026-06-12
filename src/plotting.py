@@ -1202,10 +1202,9 @@ def plot_min_x_z(data,
 
 from matplotlib.colors import TwoSlopeNorm
 from matplotlib.cm import ScalarMappable
-
 def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet_col=None, facet_row=None, 
-                 style_col=None, mode='correlation', dark=True, font_scale=1.2, 
-                 show_legend=True, show_mean_line=False, mean_line_color=None, 
+                 style_col=None, mode='correlation', font_scale=1.2, 
+                 show_legend=True, show_median_sd = False,
                  colour_type='auto', palette=['black','#D7191C'], save_path='../figures/heatmap.png', dpi=300): 
 
     data = data.copy().reset_index(drop=True)
@@ -1217,127 +1216,92 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
     if facet_row is not None:
         data = data.dropna(subset=[facet_row])
 
-    if mean_line_color is None:
-        mean_line_color = "white" if dark else "black"
-
     sns.set_context("notebook", font_scale=font_scale)
 
-    # === DYNAMIC DIMENSION CALCULATION TO MATCH FIG 1 (12x6) ===
-    # Count unique facets to determine grid dimensions
+    # === DYNAMIC DIMENSION CALCULATION ===
     num_cols = len(data[facet_col].unique()) if facet_col is not None else 1
     num_rows = len(data[facet_row].unique()) if facet_row is not None else 1
 
-    # Back-calculate height and aspect for a hard target of 12" x 6"
     calculated_height = 6.0 / num_rows
-    calculated_aspect = (12.0 / num_cols) / calculated_height
-    # ============================================================
+    calculated_aspect = (12.40 / num_cols) / calculated_height
+    # ====================================
 
-    with sns.axes_style("darkgrid" if dark else "whitegrid", rc={
+    with sns.axes_style("whitegrid", rc={
         "axes.facecolor": "white", "figure.facecolor": "white",
-        "grid.color": "#333333" if dark else "#DDDDDD", "text.color": "black",
+        "grid.color": "#DDDDDD", "text.color": "black",
         "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black"
     }):
         
-        if colour_type == 'continuous':
-            # ============= CONTINUOUS COLOR MAPPING =============
-            data[colour_col] = pd.to_numeric(data[colour_col], errors='coerce')
+        # 1. Plot raw trial data points (alpha=0.3 for background transparency)
+        g = sns.relplot(
+            data=data, x=x_col, y=y_col, hue=colour_col,
+            style=style_col, col=facet_col, row=facet_row,
+            palette=palette, alpha=0.4, kind='scatter', s=12.5,
+            height=calculated_height, aspect=calculated_aspect, 
+            facet_kws={'margin_titles': True}
+        )
+        g.fig.set_facecolor("white")
+
+
+        if show_median_sd:
             
-            v_min, v_max = data[colour_col].min(), data[colour_col].max()
-            norm = TwoSlopeNorm(vcenter=0.0, vmin=v_min, vmax=v_max) if v_min < 0 and v_max > 0 else plt.Normalize(vmin=v_min, vmax=v_max)
-            
-            g = sns.relplot(
-                data=data, x=x_col, y=y_col,
-                style=style_col, col=facet_col, row=facet_row,
-                alpha=0.3, kind='scatter', s=90,
-                height=calculated_height, aspect=calculated_aspect, 
-                facet_kws={'margin_titles': True}
-            )
-            g.fig.set_facecolor("white")
-            
-            # Manually apply continuous colormap
-            cmap = plt.cm.get_cmap(palette)
-            for ax in g.axes.flat:
-                collections = [c for c in ax.collections if hasattr(c, 'get_offsets')]
+            # ==================== ADD SUMMARY OVERLAYS PER FACET ====================
+            # This function executes once per facet, receiving the subsetted data slice
+            def _draw_median_overlay(data, **kwargs):
+                ax = plt.gca()
                 
-                if len(collections) > 0:
-                    collection = collections[0]
-                    offsets = collection.get_offsets()
+                # Group by the color column to isolate categories (e.g., Early vs Late phase)
+                grouped = data.groupby(colour_col, observed=True)
+                
+                for label, group in grouped:
+                    # 1. Calculate centroid coordinates
+                    med_x = group[x_col].median()
+                    med_y = group[y_col].median()
                     
-                    if len(offsets) > 0:
-                        color_values = data[colour_col].values[:len(offsets)]
-                        if len(color_values) > 0:
-                            normalized_colors = norm(color_values)
-                            colors = cmap(normalized_colors)
-                            collection.set_color(colors)
+                    # 2. Calculate standard deviations for error bars
+                    sd_x = group[x_col].std()
+                    sd_y = group[y_col].std()
+                    
+                    # Fetch the correct color mapped by seaborn for this specific label
+                    # (Falls back to black if not found in palette)
+                    plot_color = palette[label] if isinstance(palette, dict) and label in palette else 'black'
+                    if isinstance(palette, list):
+                        # If palette is a flat list, match by index position of unique values
+                        unique_levels = list(data[colour_col].unique())
+                        if label in unique_levels:
+                            plot_color = palette[unique_levels.index(label)]
+                
+                    # 3. Plot orthogonal error bars (both X and Y directions)
+                    ax.errorbar(
+                        x=med_x, y=med_y,
+                        xerr=sd_x, yerr=sd_y,
+                        fmt='none', ecolor=plot_color, elinewidth=2, capsize=4, zorder=99
+                    )
+                    
+                    # 4. Plot the central median point
+                    ax.scatter(
+                        med_x, med_y, color='gold', marker='X', s=50, 
+                        edgecolor=plot_color, linewidth=1.0, zorder=100
+                    )
+    
+            g.map_dataframe(_draw_median_overlay)
+            # ========================================================================
             
-            # Colorbar for continuous data
-            sm = ScalarMappable(cmap=palette, norm=norm)
-            sm.set_array([])
-            cbar_ax = g.fig.add_axes([0.85, 0.2, 0.02, 0.6])
-            cbar = g.fig.colorbar(sm, cax=cbar_ax)
-            cbar.set_label(colour_col, color='black')
-            cbar.ax.tick_params(colors='black')
-        
-        else:
-            # ============= CATEGORICAL COLOR MAPPING =============
-            g = sns.relplot(
-                data=data, x=x_col, y=y_col, hue=colour_col,
-                style=style_col, col=facet_col, row=facet_row,
-                palette=palette, alpha=0.3, kind='scatter', s=50,
-                height=calculated_height, aspect=calculated_aspect, 
-                facet_kws={'margin_titles': True}
-            )
-            g.fig.set_facecolor("white")
-        
-        # Mean Overlay Logic
-        if show_mean_line:
-            if isinstance(mean_line_color, str) and mean_line_color in data.columns:
-                g.map_dataframe(
-                    sns.lineplot, x=x_col, y=y_col, 
-                    style=style_col, 
-                    hue=mean_line_color, 
-                    palette='Set2', 
-                    linewidth=3, errorbar=None, zorder=10
-                )
-            else:
-                g.map_dataframe(
-                    sns.lineplot, x=x_col, y=y_col, 
-                    style=style_col, color=mean_line_color, 
-                    linewidth=3, errorbar=None, zorder=10
-                )
-        
         # Legend Handling
         if g._legend:
             g._legend.remove()
-        
-        if show_legend and colour_type == 'categorical':
-            unique_labels = {}
-            for ax in g.axes.flat:
-                handles, labels = ax.get_legend_handles_labels()
-                for h, l in zip(handles, labels):
-                    if l not in unique_labels and not l.replace('.','',1).replace('-','',1).isdigit():
-                        unique_labels[l] = h
-            
-            if unique_labels:
-                g.fig.legend(unique_labels.values(), unique_labels.keys(), 
-                             loc='center left', bbox_to_anchor=(0.92, 0.5), 
-                             fontsize='small', title=colour_col)
-        
-        # Styling
+
+        # Styling Limits and Axes: consistent w/ simulation plot
         for ax in g.axes.flat:
             ax.set_facecolor("white")
-            if dark:
-                ax.tick_params(colors='black')
             ax.set_xticks(range(-40, 121, 40))
-            ax.set_yticks(range(0,8, 1))
-            ax.set_ylim(0,7)
+            ax.set_yticks(range(0, 8, 1))
+            ax.set_ylim(0, 7)
             ax.set_xlim(-40, 120)
         
         g.set_axis_labels(x_col_title, y_col_title)
-
-        # Explicitly set total figure size layout to clean up margins
-        g.fig.set_size_inches(12, 6)
-                     
+        g.fig.set_size_inches(12.4, 6)
+                   
         if save_path:
             g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight') 
         
@@ -1345,6 +1309,7 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
         
         return g
 
+    
 def plot_early_late_exposure_with_slopes(
     data,
     cond_col,      # colour
