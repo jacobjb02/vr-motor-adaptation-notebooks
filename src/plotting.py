@@ -1089,7 +1089,7 @@ def plot_min_x_z(data,
                  x_lim=[-100,25],
                  context='notebook',
                  font_scale=1.0,
-                 facet_height=6.0,
+                 facet_height=4.0,
                  facet_aspect=1.0,
                  save_path='../figures/PCA_slopes.png',
                  dpi=300
@@ -1149,7 +1149,7 @@ def plot_min_x_z(data,
                     if show_target:
                         ax.scatter(
                             target_x, target_z,
-                            s=750,
+                            s=500,
                             facecolors='none',
                             edgecolors='red',
                             linewidth=5,
@@ -1194,17 +1194,21 @@ def plot_min_x_z(data,
         g.tight_layout()
 
         if save_path:
-            g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
+            g.fig.savefig(save_path, dpi=dpi)
 
     plt.show()
     return g
     
 
+
 from matplotlib.colors import TwoSlopeNorm
 from matplotlib.cm import ScalarMappable
+import matplotlib.patches as patches
+import os
+
 def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet_col=None, facet_row=None, 
                  style_col=None, mode='correlation', font_scale=1.2, 
-                 show_legend=True, show_median_sd = False,
+                 show_legend=True, show_median_sd = False, show_overlay = False, overlay_files=None,
                  colour_type='auto', palette=['black','#D7191C'], save_path='../figures/heatmap.png', dpi=300): 
 
     data = data.copy().reset_index(drop=True)
@@ -1218,97 +1222,125 @@ def plot_heatmap(data, x_col, y_col, x_col_title, y_col_title, colour_col, facet
 
     sns.set_context("notebook", font_scale=font_scale)
 
-    # === DYNAMIC DIMENSION CALCULATION ===
-    num_cols = len(data[facet_col].unique()) if facet_col is not None else 1
-    num_rows = len(data[facet_row].unique()) if facet_row is not None else 1
-
-    calculated_height = 6.0 / num_rows
-    calculated_aspect = (12.40 / num_cols) / calculated_height
-    # ====================================
-
     with sns.axes_style("whitegrid", rc={
         "axes.facecolor": "white", "figure.facecolor": "white",
         "grid.color": "#DDDDDD", "text.color": "black",
         "axes.labelcolor": "black", "xtick.color": "black", "ytick.color": "black"
     }):
         
-        # 1. Plot raw trial data points (alpha=0.3 for background transparency)
+        # 1. Plot raw trial data points
         g = sns.relplot(
             data=data, x=x_col, y=y_col, hue=colour_col,
             style=style_col, col=facet_col, row=facet_row,
             palette=palette, alpha=0.4, kind='scatter', s=12.5,
-            height=calculated_height, aspect=calculated_aspect, 
-            facet_kws={'margin_titles': True}
+            height=6, aspect=1, 
+            facet_kws={'sharex': False, 'margin_titles': True}
         )
         g.fig.set_facecolor("white")
+        g.set_titles("")
+        g.fig.set_size_inches(12, 6)
+        g.fig.subplots_adjust(left=0.125, bottom=0.11, right=0.9, top=0.88, wspace=0.2, hspace=0.2)
 
-
-        if show_median_sd:
-            
-            # ==================== ADD SUMMARY OVERLAYS PER FACET ====================
-            # This function executes once per facet, receiving the subsetted data slice
-            def _draw_median_overlay(data, **kwargs):
+        # ==================== ADD SOLUTION OVERLAYS PER FACET ====================
+        if show_overlay and overlay_files is not None:
+            def _draw_solution_overlay(data, **kwargs):
                 ax = plt.gca()
                 
-                # Group by the color column to isolate categories (e.g., Early vs Late phase)
+                # Extract the current facet row and col names from Seaborn kwargs
+                current_row = kwargs.get('row_name', None)
+                current_col = kwargs.get('col_name', None)
+                
+                # Retrieve the filepath from mapping dictionary lookup key: (row, col)
+                # If only facet_col or facet_row is used, adjust the key format accordingly
+                lookup_key = (current_row, current_col)
+                csv_path = overlay_files.get(lookup_key, None)
+                
+                if csv_path and os.path.exists(csv_path):
+                    try:
+                        overlay_df = pd.read_csv(csv_path)
+                        
+                        # Verify necessary analytical columns exist in the target CSV
+                        # Assuming columns containing upper/lower boundary curves are labeled
+                        # 'max_x', 'min_x', 'max_y', 'min_y'
+                        max_x = overlay_df['max_x'].dropna().values
+                        min_x = overlay_df['min_x'].dropna().values
+                        max_y = overlay_df['max_y'].dropna().values
+                        min_y = overlay_df['min_y'].dropna().values
+                        
+                        # Construct a closed polygon loop using standard syntax: 
+                        # Concatenate upper boundary with reversed lower boundary
+                        x_polygon = np.concatenate([max_x, min_x[::-1]])
+                        y_polygon = np.concatenate([max_y, min_y[::-1]])
+                        
+                        ax.fill(x_polygon, y_polygon, color='blue', alpha=0.15, zorder=1, label='Solution Space')
+                    except Exception as e:
+                        print(f"Error processing overlay file {csv_path}: {e}")
+                else:
+                    print(f"Warning: No valid overlay file mapped for facet key {lookup_key}")
+
+            g.map_dataframe(_draw_solution_overlay)
+
+        # ==================== ADD SUMMARY OVERLAYS PER FACET ====================
+        if show_median_sd:
+            def _draw_median_overlay(data, **kwargs):
+                ax = plt.gca()
                 grouped = data.groupby(colour_col, observed=True)
                 
                 for label, group in grouped:
-                    # 1. Calculate centroid coordinates
                     med_x = group[x_col].median()
                     med_y = group[y_col].median()
-                    
-                    # 2. Calculate standard deviations for error bars
                     sd_x = group[x_col].std()
                     sd_y = group[y_col].std()
                     
-                    # Fetch the correct color mapped by seaborn for this specific label
-                    # (Falls back to black if not found in palette)
                     plot_color = palette[label] if isinstance(palette, dict) and label in palette else 'black'
                     if isinstance(palette, list):
-                        # If palette is a flat list, match by index position of unique values
                         unique_levels = list(data[colour_col].unique())
                         if label in unique_levels:
                             plot_color = palette[unique_levels.index(label)]
                 
-                    # 3. Plot orthogonal error bars (both X and Y directions)
-                    ax.errorbar(
-                        x=med_x, y=med_y,
-                        xerr=sd_x, yerr=sd_y,
-                        fmt='none', ecolor=plot_color, elinewidth=2, capsize=4, zorder=99
-                    )
+                    lower_left_x = med_x - sd_x
+                    lower_left_y = med_y - sd_y
+                    width = sd_x * 2
+                    height = sd_y * 2
                     
-                    # 4. Plot the central median point
-                    ax.scatter(
-                        med_x, med_y, color='gold', marker='X', s=50, 
-                        edgecolor=plot_color, linewidth=1.0, zorder=100
-                    )
+                    square = patches.Rectangle((lower_left_x, lower_left_y), width, height, linewidth=2, edgecolor=plot_color, facecolor='none')
+                    ax.add_patch(square)
+                    
+                    ax.scatter(med_x, med_y, color='gold', marker='X', s=50, edgecolor=plot_color, linewidth=1.0, zorder=100)
     
             g.map_dataframe(_draw_median_overlay)
-            # ========================================================================
             
         # Legend Handling
         if g._legend:
             g._legend.remove()
 
-        # Styling Limits and Axes: consistent w/ simulation plot
-        for ax in g.axes.flat:
-            ax.set_facecolor("white")
-            ax.set_xticks(range(-40, 121, 40))
-            ax.set_yticks(range(0, 8, 1))
-            ax.set_ylim(0, 7)
-            ax.set_xlim(-40, 120)
-        
-        g.set_axis_labels(x_col_title, y_col_title)
-        g.fig.set_size_inches(12.4, 6)
-                   
+        # Styling Limits and Axes
+        grid_rows, grid_cols = g.axes.shape
+        for r in range(grid_rows):
+
+            print(r)
+            
+            for c in range(grid_cols):
+                ax = g.axes[r, c]
+                ax.set_facecolor("white")
+                ax.set_ylim(0, 7)
+
+                if c < 2:
+                    ax.set_xticks(range(-20, 101, 20))
+                    ax.set_yticks(range(0, 8, 1))
+                    ax.set_xlim(-20, 100)
+                else:
+                    ax.set_xticks(range(-40, 81, 20))
+                    ax.set_yticks(range(0, 8, 1))
+                    ax.set_xlim(-40, 80)
+                
+        g.fig.set_size_inches(12, 6)
+                    
         if save_path:
-            g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight') 
+            g.fig.savefig(save_path, dpi=dpi) 
         
         plt.show()
-        
         return g
-
     
 def plot_early_late_exposure_with_slopes(
     data,
@@ -1842,4 +1874,151 @@ def plot_slopes(
     g.add_legend()
     plt.show()
 
+
+
+# solution space
+import matplotlib.patches as patches
+
+def plot_solution_space_heatmap(data, x_col, y_col, water_col, target_col, colour_col, palette=['black','#D7191C'], show_centre_sd=True):
+    water_speeds = [-3, -2]
+    targets = { 'L60' : [-.6, 0, 1.4],
+                'L30' : [-.3, 0, 1.4],
+                'R30' : [ .3, 0, 1.4],
+                'R60' : [ .6, 0, 1.4]   }
     
+    bunch = {}
+    speedranges = {}
+    radius = 0.175/2
+    
+    fig, axs = plt.subplots(len(water_speeds), len(targets), figsize=(12, 6), squeeze=False)
+    
+    for water_speed_idx in range(len(water_speeds)):
+        water_speed = water_speeds[water_speed_idx]
+        bunch[str(water_speed)] = {}
+        speedranges[str(water_speed)] = {}
+        
+        for target_idx in range(len(targets)):
+            target_name = list(targets.keys())[target_idx]
+            target = targets[target_name]
+            target_angle = (np.arctan2(target[2], target[0]) / np.pi) * 180
+
+
+            relative_string_path = f'../data/solution_space/errors_{water_speed}_{target_name}.csv'
+            errors = pd.read_csv(relative_string_path, header=0, index_col=0)            
+            angles = [(float(x)-target_angle) * -1.0 for x in list(errors.columns.to_numpy())]
+            speeds = list(errors.index.to_numpy())
+            errors_np = errors.to_numpy()
+    
+            errors_np = errors_np - radius
+            errors_np = np.maximum(errors_np, np.zeros_like(errors_np))
+    
+            min_x = []
+            min_y = []
+            max_x = []
+            max_y = []
+            range_x = []
+            range_y = []
+    
+            for angle_idx in range(len(angles)):
+                angle = angles[angle_idx]
+    
+                if any(errors_np[:,angle_idx] < 1e-6):
+                    minspeed = speeds[int(np.min((errors_np[:,angle_idx] < 1e-6).nonzero()[0]))]
+                    maxspeed = speeds[int(np.max((errors_np[:,angle_idx] < 1e-6).nonzero()[0]))]
+    
+                    min_x.append(angle)
+                    min_y.append(minspeed)
+                    max_x.append(angle)
+                    max_y.append(maxspeed)
+    
+                    range_x.append(angle)
+                    range_y.append(maxspeed-minspeed)
+    
+            my_ax = axs[water_speed_idx, target_idx]
+
+            # # plt.figure(figsize=(6, 4))
+            # my_ax.set_xlim(-20, 100)
+            # my_ax.set_xticks([-20,0,20,40,60,80,100])
+
+            # my_ax.set_ylim(0, 7)
+            # my_ax.set_yticks([0,1,2,3,4,5,6,7])
+
+
+            if target_idx < 2:
+                
+                my_ax.set_xticks(range(-20, 101, 20))
+                my_ax.set_yticks(range(0, 9, 1))
+                my_ax.set_xlim(-20, 100)
+                
+            else:
+                my_ax.set_xticks(range(-40, 81, 20))
+                my_ax.set_yticks(range(0, 9, 1))
+                my_ax.set_xlim(-40, 80)
+                
+
+            X = max_x + min_x[::-1]
+            
+            # Filter data for the specific cell in the FacetGrid
+            subset_data = data[(data[water_col] == water_speed) & (data[target_col] == target_name)]
+
+            # scatter
+            sns.scatterplot(
+                data=subset_data, 
+                x=x_col, 
+                y=y_col,
+                hue=colour_col,
+                palette=palette,
+                ax=my_ax,      
+                alpha=0.4, 
+                s=12.5,
+                legend=False
+            )
+
+            if show_centre_sd:
+                
+                    grouped = subset_data.groupby(colour_col, observed=True)     
+                    
+                    for label, group in grouped:
+                        med_x = group[x_col].median()
+                        med_y = group[y_col].median()
+                        sd_x = group[x_col].std()
+                        sd_y = group[y_col].std()
+                        
+                        plot_color = palette[label] if isinstance(palette, dict) and label in palette else 'black'
+                        if isinstance(palette, list):
+                            unique_levels = list(data[colour_col].unique())
+                            if label in unique_levels:
+                                plot_color = palette[unique_levels.index(label)]
+                    
+                        lower_left_x = med_x - sd_x
+                        lower_left_y = med_y - sd_y
+                        width = sd_x * 2
+                        height = sd_y * 2
+                        
+                        square = patches.Rectangle((lower_left_x, lower_left_y), width, height, linewidth=2, edgecolor=plot_color, facecolor='none')
+                        my_ax.add_patch(square)
+                        my_ax.scatter(med_x, med_y, color='gold', marker='X', s=50, edgecolor=plot_color, linewidth=1.0, zorder=100)
+        
+
+            # Plot solution space fill
+            my_ax.fill(max_x + min_x[::-1], max_y + min_y[::-1], alpha=0.3, color='blue')
+                        
+            if water_speed == -3:
+                my_ax.set_title(target_name)
+            else:
+                my_ax.set_xlabel('launch deviation (degrees)')
+    
+            if target_name == 'L60':
+                my_ax.set_ylabel('launch speed (m/s)')
+    
+            X_coords = max_x + min_x[::-1]
+            X_adjusted = [float(x) - target_angle for x in X_coords]
+            Y_coords = max_y + min_y[::-1]
+    
+            bunch[str(water_speed)][target_name] = {'x': X_adjusted, 'y': Y_coords}
+            X_range_adjusted = [x - target_angle for x in range_x]
+            speedranges[str(water_speed)][target_name] = {'x': X_range_adjusted, 'y': range_y}
+    
+    plt.tight_layout()
+    plt.show()
+        
