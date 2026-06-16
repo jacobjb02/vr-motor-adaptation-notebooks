@@ -1879,7 +1879,8 @@ def plot_slopes(
 # solution space
 import matplotlib.patches as patches
 
-def plot_solution_space_heatmap(data, x_col, y_col, water_col, target_col, colour_col, palette=['black','#D7191C'], show_centre_sd=True):
+def plot_solution_space_heatmap(data, x_col, y_col, water_col, target_col, colour_col, palette=['black','#D7191C'], show_centre_sd=True,
+                               save_path='../figures/solution_heatmap.png', dpi=300):
     water_speeds = [-3, -2]
     targets = { 'L60' : [-.6, 0, 1.4],
                 'L30' : [-.3, 0, 1.4],
@@ -1936,26 +1937,22 @@ def plot_solution_space_heatmap(data, x_col, y_col, water_col, target_col, colou
     
             my_ax = axs[water_speed_idx, target_idx]
 
-            # # plt.figure(figsize=(6, 4))
-            # my_ax.set_xlim(-20, 100)
-            # my_ax.set_xticks([-20,0,20,40,60,80,100])
-
-            # my_ax.set_ylim(0, 7)
-            # my_ax.set_yticks([0,1,2,3,4,5,6,7])
-
-
             if target_idx < 2:
                 
                 my_ax.set_xticks(range(-20, 101, 20))
-                my_ax.set_yticks(range(0, 9, 1))
+                my_ax.set_yticks(range(0, 8, 1))
                 my_ax.set_xlim(-20, 100)
+                my_ax.set_ylim(0.5, 7)
                 
             else:
                 my_ax.set_xticks(range(-40, 81, 20))
-                my_ax.set_yticks(range(0, 9, 1))
+                my_ax.set_yticks(range(0, 8, 1))
                 my_ax.set_xlim(-40, 80)
+                my_ax.set_ylim(0.5, 7)
                 
 
+            my_ax.grid(True, which='both', linestyle='-', linewidth=0.5, color='gray')
+            
             X = max_x + min_x[::-1]
             
             # Filter data for the specific cell in the FacetGrid
@@ -1979,8 +1976,8 @@ def plot_solution_space_heatmap(data, x_col, y_col, water_col, target_col, colou
                     grouped = subset_data.groupby(colour_col, observed=True)     
                     
                     for label, group in grouped:
-                        med_x = group[x_col].median()
-                        med_y = group[y_col].median()
+                        med_x = group[x_col].mean()
+                        med_y = group[y_col].mean()
                         sd_x = group[x_col].std()
                         sd_y = group[y_col].std()
                         
@@ -2001,23 +1998,30 @@ def plot_solution_space_heatmap(data, x_col, y_col, water_col, target_col, colou
         
 
             # Plot solution space fill
-            my_ax.fill(max_x + min_x[::-1], max_y + min_y[::-1], alpha=0.3, color='blue')
+            my_ax.fill(max_x + min_x[::-1], max_y + min_y[::-1], alpha=0.75, facecolor='none', edgecolor='darkblue', linewidth=2.0)
                         
             if water_speed == -3:
                 my_ax.set_title(target_name)
+                my_ax.set_xlabel('')
             else:
-                my_ax.set_xlabel('launch deviation (degrees)')
+                my_ax.set_xlabel('launch deviation (°)')
     
             if target_name == 'L60':
                 my_ax.set_ylabel('launch speed (m/s)')
+            else:
+                 my_ax.set_ylabel('')
+
+            
+            # X_coords = max_x + min_x[::-1]
+            # X_adjusted = [float(x) - target_angle for x in X_coords]
+            # Y_coords = max_y + min_y[::-1]
     
-            X_coords = max_x + min_x[::-1]
-            X_adjusted = [float(x) - target_angle for x in X_coords]
-            Y_coords = max_y + min_y[::-1]
-    
-            bunch[str(water_speed)][target_name] = {'x': X_adjusted, 'y': Y_coords}
-            X_range_adjusted = [x - target_angle for x in range_x]
-            speedranges[str(water_speed)][target_name] = {'x': X_range_adjusted, 'y': range_y}
+            # bunch[str(water_speed)][target_name] = {'x': X_adjusted, 'y': Y_coords}
+            # X_range_adjusted = [x - target_angle for x in range_x]
+            # speedranges[str(water_speed)][target_name] = {'x': X_range_adjusted, 'y': range_y}
+
+    if save_path:
+        fig.savefig(save_path, dpi=dpi)
     
     plt.tight_layout()
     plt.show()
