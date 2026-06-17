@@ -1940,15 +1940,15 @@ def plot_solution_space_heatmap(data, x_col, y_col, water_col, target_col, colou
             if target_idx < 2:
                 
                 my_ax.set_xticks(range(-20, 101, 20))
-                my_ax.set_yticks(range(0, 8, 1))
+                my_ax.set_yticks(range(0, 7, 1))
                 my_ax.set_xlim(-20, 100)
-                my_ax.set_ylim(0.5, 7)
+                my_ax.set_ylim(0.5, 6)
                 
             else:
                 my_ax.set_xticks(range(-40, 81, 20))
-                my_ax.set_yticks(range(0, 8, 1))
+                my_ax.set_yticks(range(0, 7, 1))
                 my_ax.set_xlim(-40, 80)
-                my_ax.set_ylim(0.5, 7)
+                my_ax.set_ylim(0.5, 6)
                 
 
             my_ax.grid(True, which='both', linestyle='-', linewidth=0.5, color='gray')
@@ -1966,7 +1966,7 @@ def plot_solution_space_heatmap(data, x_col, y_col, water_col, target_col, colou
                 hue=colour_col,
                 palette=palette,
                 ax=my_ax,      
-                alpha=0.4, 
+                alpha=0.75, 
                 s=12.5,
                 legend=False
             )
