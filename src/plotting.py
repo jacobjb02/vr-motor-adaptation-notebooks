@@ -24,6 +24,8 @@ TARGET_PALETTE = {
 }
 
 
+
+
 # trial schedule plot
 def plot_trial_schedule(
     data, 
@@ -1873,6 +1875,130 @@ def plot_slopes(
 
     g.add_legend()
     plt.show()
+
+
+
+
+
+def plot_slopes_target_swaps(
+    data,
+    x_col,
+    y_col,
+    hue_var,
+    facet_row,
+    facet_col,
+    palette=TARGET_PALETTE,
+    hit_bounds = [-5.0, 5.0],
+    facet_aspect=0.75,
+    facet_height=3.5,
+    y_lim = (-100,150),
+    save_path='../figures/violin_with_slopes_swaps.png',
+    dpi=300
+):
+
+
+    data = data.copy()
+
+    # Drop unused facet subsets
+    if facet_row is None:
+        data[' '] = ' '
+        facet_row = ' '
+    else:
+        data[facet_row] = data[facet_row].cat.remove_unused_categories()
+        
+    if facet_col is None:
+        data[' '] = ' '
+        facet_col = ' '
+    else:
+        data[facet_col] = data[facet_col].cat.remove_unused_categories()
+
+
+    # facet style
+    sns.set_theme(style="whitegrid")
+    
+    # Initialize Grid
+    g = sns.FacetGrid(
+        data,
+        col=facet_col,
+        row=facet_row,
+        height=facet_height,
+        aspect=facet_aspect,
+        margin_titles=True
+    )
+
+    # y lims
+    g.set(ylim=y_lim)
+
+
+    # scatterplot
+    g.map_dataframe(
+        sns.stripplot,
+        x=x_col,
+        y=y_col,
+        hue=hue_var,
+        palette=palette,
+        dodge=True,
+        jitter=0.15,
+        alpha=0.2,
+        size=3
+    )
+
+    
+    # violins
+    g.map_dataframe(
+        sns.violinplot,
+        x=x_col,
+        y=y_col,
+        hue=hue_var,
+        palette=palette,
+        inner=None,
+        dodge=True,
+        width=0.8,
+        alpha=0.1,
+        gap=0.1
+    )
+
+    # mean & slopes pointplot
+    g.map_dataframe(
+        sns.pointplot, 
+        x=x_col, 
+        y=y_col,
+        hue=hue_var,
+        palette=palette,
+        dodge=True,
+        markersize=5
+    )
+
+
+#    add ticks every 25 units
+    y_ticks = np.arange(y_lim[0], y_lim[1] + 1, 5) 
+    for ax in g.axes.flat:
+        ax.set_yticks(y_ticks)
+    
+        # Plot Hit-Based Reference Lines
+        if hit_bounds is not None:
+                ax.axhspan(
+                    ymin=min(hit_bounds),
+                    ymax=max(hit_bounds),
+                    color='green',
+                    alpha=0.1,
+                    zorder=0
+                )
+                ax.axhline(y=min(hit_bounds), color='green', linestyle='--', alpha=0.3, lw=1.0, zorder=0)
+                ax.axhline(y=max(hit_bounds), color='green', linestyle='--', alpha=0.3, lw=1.0, zorder=0)
+
+        # show zero line
+    g.refline(y=0.0, color='black', linestyle='--', alpha=0.3, linewidth=1.3, zorder=1)
+    
+    # g.fig.set_size_inches(6, 8)
+
+
+    if save_path:
+        g.fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
+
+    g.add_legend()
+    plt.show()
+
 
 
 
