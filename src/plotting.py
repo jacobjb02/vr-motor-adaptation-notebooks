@@ -145,6 +145,8 @@ def plot_all_trials(
         row_col,
         col_col,
         target_col,
+        show_manual_span=False,
+        manual_span=None,
         hit_col=None,          
         ref_range_col=None,    
         transition_col=None,
@@ -159,7 +161,7 @@ def plot_all_trials(
         context='notebook',
         marker_size=2,
         font_scale=1,
-        save_path='../figures/all_trials.png',
+        save_path='../figures/all_trials.svg',
         dpi=300
     ):
 
@@ -422,6 +424,9 @@ def plot_all_trials(
                 )
                 ax.axhline(y=hit_min, color='green', linestyle='--', alpha=0.3, lw=1.0, zorder=0)
                 ax.axhline(y=hit_max, color='green', linestyle='--', alpha=0.3, lw=1.0, zorder=0)
+                
+            if show_manual_span:
+                ax.axhspan(manual_span.min(), manual_span.max(), color='green', alpha=0.15, zorder=0, lw=0)
 
             if show_zero_line:
                 ax.axhline(y=0.0, color='black', linestyle='--', alpha=0.3)
