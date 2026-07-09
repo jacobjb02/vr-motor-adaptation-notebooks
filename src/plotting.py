@@ -391,7 +391,7 @@ def plot_all_trials(
                                     alpha=0.25, color=color, linewidth=0
                                 )
 
-    g.fig.set_size_inches(10, 8)
+    g.fig.set_size_inches(24, 8)
 
     # --- AXIS FORMATTING & REFERENCE LINES ---
     visible_bottom_axes = {}
@@ -462,9 +462,9 @@ def plot_all_trials(
     if hit_min is not None:
         handles.append(mlines.Line2D([], [], color='green', linestyle='--', alpha=0.6, label='Hit Zone'))
 
-    if handles:
-        g.fig.legend(handles=handles, title="Targets & Conditions", loc="center left",
-                     bbox_to_anchor=(0.88, 0.5), frameon=True)
+    # if handles:
+    #     g.fig.legend(handles=handles, title="Targets & Conditions", loc="center left",
+    #                  bbox_to_anchor=(0.88, 0.5), frameon=True)
 
     if vertical_list:
         for v in vertical_list:
