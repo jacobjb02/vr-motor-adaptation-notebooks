@@ -1129,7 +1129,7 @@ def plot_min_x_z(data,
             aspect=facet_aspect,
             alpha=0.2,
             s=75.0,
-            legend=False,
+            legend=True,
             facet_kws={'sharex': True, 'sharey': True}
         )
 

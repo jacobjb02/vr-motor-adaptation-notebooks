@@ -14,10 +14,6 @@ def compute_PCA_summary(data,
                 n_components
                ):
 
-    
-    # ensure x-axis is the first feature
-    #assert features[0] == 'min_pos_from_target_x_cm', "First idex feature MUST belong to the X-dimension!"
-    
     results = []
 
     data_group = data.groupby(group_cols, observed=True)
