@@ -26,6 +26,8 @@ def add_cycles(data,
         grouping_vars = grouping_vars + [phase_str]
         counts = df.groupby(grouping_vars, observed=True).cumcount()
         df['cycle_TargetxPhase_num'] = counts // n_trials + 1
+
+        df['trial_within_cyclexPhase'] = (counts % n_trials) + 1
         
     
     return df

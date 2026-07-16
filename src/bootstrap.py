@@ -94,8 +94,57 @@ def run_bootstrap(
     
 
 
+def calculate_distribution_bounds(data, y_col, group_cols=None):
+    results = []
 
+    if group_cols is not None:
+        for name, group in data.groupby(group_cols, observed=True):
+            y_data = group[y_col].to_numpy()
+            
+            # Calculate the parametric 2.58 Sigma bounds (99% of distribution)
+            mean_val = np.mean(y_data)
+            std_val = np.std(y_data, ddof=1)
+            sigma_low = mean_val - (2.576 * std_val)
+            sigma_high = mean_val + (2.576 * std_val)
+            
+            results.append({
+                'group_name': name,
+                'mean': mean_val,
+                'sigma_low': sigma_low,
+                'sigma_high': sigma_high
+            })
+            
+    else:
+        y_data = data[y_col].to_numpy()
+                
+        # Apply the exact same bounding math to the un-grouped array
+        mean_val = np.mean(y_data)
+        std_val = np.std(y_data, ddof=1)
+        sigma_low = mean_val - (2.576 * std_val)
+        sigma_high = mean_val + (2.576 * std_val)
+            
+        results.append({
+            'mean': mean_val,
+            'sigma_low': sigma_low,
+            'sigma_high': sigma_high
+        })
+    
+    results_df = pd.DataFrame(results)
 
+    # Convert group_name into separate columns
+    if group_cols is not None:
+        if len(group_cols) == 1:
+            # Grouping by 1 column returns scalars
+            results_df[group_cols[0]] = results_df['group_name']
+        else:
+            # Grouping by multiple columns returns tuples. Expand them into a DataFrame.
+            expanded_cols = pd.DataFrame(results_df['group_name'].tolist(), index=results_df.index)
+            results_df[group_cols] = expanded_cols
+        
+        # Clean up the intermediate column
+        results_df = results_df.drop(columns=['group_name'])
+
+    return results_df
 
 
 
