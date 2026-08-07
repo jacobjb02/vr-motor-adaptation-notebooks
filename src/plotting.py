@@ -391,7 +391,7 @@ def plot_all_trials(
                                     alpha=0.25, color=color, linewidth=0
                                 )
 
-    g.fig.set_size_inches(24, 8)
+    g.fig.set_size_inches(16, 8)
 
     # --- AXIS FORMATTING & REFERENCE LINES ---
     visible_bottom_axes = {}
@@ -1786,12 +1786,14 @@ def plot_slopes(
         data[' '] = ' '
         facet_row = ' '
     else:
+        data[facet_row] = data[facet_row].astype('category') # ensure category
         data[facet_row] = data[facet_row].cat.remove_unused_categories()
         
     if facet_col is None:
         data[' '] = ' '
         facet_col = ' '
     else:
+        data[facet_col] = data[facet_col].astype('category') # ensure category
         data[facet_col] = data[facet_col].cat.remove_unused_categories()
 
 
