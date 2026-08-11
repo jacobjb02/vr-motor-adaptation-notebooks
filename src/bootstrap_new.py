@@ -20,33 +20,35 @@ def run_bootstrap_new(
     y_col,
     ppid_col,
     target_col,
-    water_col,
+    water_state_col,
     trial_col,
-    baseline_str = 'baseline',
+    phase_col,
+    water_speed_col = 'speed_label',
+    compare_phase_str = 'baseline',
     washout_str = 'washout_1',
     n_resamples=9999
 ):
 
         # subset baseline to final 8 trials
-        baseline = data[data['phase'] == baseline_str]
-        max_trials = baseline['trial_num'].max()
-        baseline_subset = baseline[baseline['trial_num'] >= max_trials - 7]
+        phase_to_compare = data[data[phase_col] == compare_phase_str]
+        max_trials = phase_to_compare[trial_col].max()
+        phase_subset = phase_to_compare[phase_to_compare[trial_col] >= max_trials - 7]
         # get baseline means
-        baseline_means = (baseline_subset.groupby([ppid_col, target_col], observed=True)[y_col].mean().reset_index(name='avg_baseline_dev'))    
+        phase_means = (phase_subset.groupby([ppid_col, target_col, water_speed_col], observed=True)[y_col].mean().reset_index(name='avg_phase_dev'))    
 
-        # get washout subset
-        washout = data[(data['phase'] == washout_str) & (data[water_col] == 0)]
+        # get washout still-water subset
+        washout = data[(data[phase_col] == washout_str) & (data[water_state_col] == 0)]
         
-        merged_df = pd.merge(baseline_means, washout[[ppid_col, target_col, trial_col, y_col]], on=[ppid_col, target_col])
-        merged_df['diff'] = merged_df[y_col] - merged_df['avg_baseline_dev']
+        merged_df = pd.merge(phase_means, washout[[ppid_col, target_col, trial_col, water_speed_col, y_col]], on=[ppid_col, target_col, water_speed_col])
+        merged_df['diff'] = merged_df[y_col] - merged_df['avg_phase_dev']
 
         # List to store results from t loop
         results = []
 
         # loop through each target
-        group_cols = [target_col, trial_col]
+        group_cols = [target_col, trial_col, water_speed_col]
 
-        for (target, trial), group in merged_df.groupby(group_cols, observed=True):
+        for (target, trial, ws_val), group in merged_df.groupby(group_cols, observed=True):
             diffs = group['diff'].to_numpy()
 
             # SciPy bootstrap
@@ -58,22 +60,43 @@ def run_bootstrap_new(
                             method='BCa',
                             random_state=1
                 )
+
+
+            if compare_phase_str == 'baseline':
+
+                is_sig = res.confidence_interval.low > 0 or res.confidence_interval.high < 0
     
-            # return dictionary
-            results.append({
-                    'target': target,
-                    'trial': trial,
-                    'mean_change': np.mean(diffs),
-                    'ci_low': res.confidence_interval.low,
-                    'ci_high': res.confidence_interval.high,
-                    'n_ppid': len(diffs),
-                    'is_aftereffect': res.confidence_interval.low > 0 or res.confidence_interval.high < 0
-            })
+                # return dictionary
+                results.append({
+                        'water_speed':ws_val,
+                        'target': target,
+                        'trial': trial,
+                        'mean_change': np.mean(diffs),
+                        'ci_low': res.confidence_interval.low,
+                        'ci_high': res.confidence_interval.high,
+                        'n_ppid': len(diffs),
+                        'is_sig': is_sig
+                })
 
-        return pd.DataFrame(results).sort_values(['target','trial'])
+            else:
 
+                is_sig = res.confidence_interval.low > 0 or res.confidence_interval.high < 0
 
+                # return dictionary
+                results.append({
+                        'water_speed':ws_val,
+                        'target': target,
+                        'trial': trial,
+                        'mean_change': np.mean(diffs),
+                        'ci_low': res.confidence_interval.low,
+                        'ci_high': res.confidence_interval.high,
+                        'n_ppid': len(diffs),
+                        'is_sig': is_sig,
+                        'inside_training_ci': not is_sig
+                })
+                
 
+        return pd.DataFrame(results).sort_values(['water_speed','target','trial'])
 
 
 # ////////
