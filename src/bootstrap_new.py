@@ -6,7 +6,14 @@ import seaborn.objects as so
 import matplotlib.pyplot as plt 
 
 
-
+# Global static color mapping for targets
+_colors = sns.color_palette(["#FF0000", "#0000FF", "#FF4500", "#05472A"])
+TARGET_PALETTE = {
+    "L60": _colors[3], # Green
+    "L30": _colors[2], # Blue
+    "R30":   _colors[1], # Orange
+    "R60":   _colors[0]  # Red
+}
 
 def run_bootstrap_new(
     data,
