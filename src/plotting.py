@@ -25,6 +25,51 @@ TARGET_PALETTE = {
 
 
 
+def plot_aftereffects(data,
+                      facet_col = 'block_num',
+                      facet_row = 'water_speed',
+                      target_col = 'target',
+                      marker_variable_list = ['is_sig_from_baseline', 'is_sig_from_training_1'],
+                      x_col = 'trial_in_block',
+                      y_col = 'target'
+                     ):
+
+    data = data.copy()
+
+    
+    # setup plot
+    g = sns.FacetGrid(data=data, col=facet_col, row=facet_row)
+
+    # LAYER 1: HOLLOW CIRCLES 
+    g.map_dataframe(  
+        sns.scatterplot,  
+        x=x_col,  
+        y=y_col,  
+        hue=target_col,  
+        palette=TARGET_PALETTE,  
+        edgecolor=None,       
+        linewidth=2,  
+        size=marker_variable_list[0],  
+        sizes={True: 125, False: 0}, 
+        legend=False  
+    )  
+    
+    # LAYER 2: STARS
+    g.map_dataframe(  
+        sns.scatterplot,  
+        x=x_col,  
+        y=y_col,  
+        hue=target_col,             
+        palette=TARGET_PALETTE,            
+        style=marker_variable_list[1],  
+        markers={True: "*", False: "."},  
+        size=marker_variable_list[1],  
+        sizes={True: 100, False: 0},  
+        legend=False  
+    )  
+  
+    return g
+
 
 # trial schedule plot
 def plot_trial_schedule(

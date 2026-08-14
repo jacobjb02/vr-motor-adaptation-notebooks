@@ -22,17 +22,18 @@ def run_bootstrap_new(
     target_col,
     water_state_col,
     trial_col,
-    phase_col,
+    phase_col = 'phase',
+    n_trials = 8,
     water_speed_col = 'speed_label',
     compare_phase_str = 'baseline',
     washout_str = 'washout_1',
     n_resamples=9999
 ):
 
-        # subset baseline to final 8 trials
+        # subset baseline to final n trials
         phase_to_compare = data[data[phase_col] == compare_phase_str]
         max_trials = phase_to_compare[trial_col].max()
-        phase_subset = phase_to_compare[phase_to_compare[trial_col] >= max_trials - 7]
+        phase_subset = phase_to_compare[phase_to_compare[trial_col] >= max_trials - (n_trials-1)]
         # get baseline means
         phase_means = (phase_subset.groupby([ppid_col, target_col, water_speed_col], observed=True)[y_col].mean().reset_index(name='avg_phase_dev'))    
 
@@ -40,6 +41,7 @@ def run_bootstrap_new(
         washout = data[(data[phase_col] == washout_str) & (data[water_state_col] == 0)]
         
         merged_df = pd.merge(phase_means, washout[[ppid_col, target_col, trial_col, water_speed_col, y_col]], on=[ppid_col, target_col, water_speed_col])
+        # difference between ppid trial per target and their average launch deviation at the end of the phase
         merged_df['diff'] = merged_df[y_col] - merged_df['avg_phase_dev']
 
         # List to store results from t loop
@@ -62,38 +64,39 @@ def run_bootstrap_new(
                 )
 
 
-            if compare_phase_str == 'baseline':
+            # if compare_phase_str == 'baseline':
 
-                is_sig = res.confidence_interval.low > 0 or res.confidence_interval.high < 0
-    
-                # return dictionary
-                results.append({
+            #     is_sig = res.confidence_interval.low > 0 or res.confidence_interval.high < 0
+        
+            #     # return dictionary
+            #     results.append({
+            #                 'water_speed':ws_val,
+            #                 'target': target,
+            #                 'trial': trial,
+            #                 'mean_change': np.mean(diffs),
+            #                 'ci_low': res.confidence_interval.low,
+            #                 'ci_high': res.confidence_interval.high,
+            #                 'n_ppid': len(diffs),
+            #                 'is_sig_baseline_AE': is_sig
+            #         })
+
+            # else:
+
+            phase_str = str(compare_phase_str)
+
+            is_sig = res.confidence_interval.low > 0 or res.confidence_interval.high < 0
+
+            # return dictionary
+            results.append({
                         'water_speed':ws_val,
                         'target': target,
                         'trial': trial,
-                        'mean_change': np.mean(diffs),
-                        'ci_low': res.confidence_interval.low,
-                        'ci_high': res.confidence_interval.high,
-                        'n_ppid': len(diffs),
-                        'is_sig': is_sig
-                })
-
-            else:
-
-                is_sig = res.confidence_interval.low > 0 or res.confidence_interval.high < 0
-
-                # return dictionary
-                results.append({
-                        'water_speed':ws_val,
-                        'target': target,
-                        'trial': trial,
-                        'mean_change': np.mean(diffs),
-                        'ci_low': res.confidence_interval.low,
-                        'ci_high': res.confidence_interval.high,
-                        'n_ppid': len(diffs),
-                        'is_sig': is_sig,
-                        'inside_training_ci': not is_sig
-                })
+                        f'mean_change_from_{phase_str}': np.mean(diffs),
+                        f'ci_low_{phase_str}': res.confidence_interval.low,
+                        f'ci_high_{phase_str}': res.confidence_interval.high,
+                        f'n_ppid_{phase_str}': len(diffs),
+                        f'is_sig_from_{phase_str}': is_sig
+            })
                 
 
         return pd.DataFrame(results).sort_values(['water_speed','target','trial'])
