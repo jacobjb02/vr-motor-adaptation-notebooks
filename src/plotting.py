@@ -206,7 +206,7 @@ def plot_all_trials(
         context='notebook',
         marker_size=2,
         font_scale=1,
-        save_path='../figures/all_trials.svg',
+        save_path='../figures/all_trials.png',
         dpi=300
     ):
 
@@ -436,7 +436,7 @@ def plot_all_trials(
                                     alpha=0.25, color=color, linewidth=0
                                 )
 
-    g.fig.set_size_inches(16, 8)
+    g.fig.set_size_inches(10, 12)
 
     # --- AXIS FORMATTING & REFERENCE LINES ---
     visible_bottom_axes = {}
