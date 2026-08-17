@@ -84,7 +84,7 @@ def run_bootstrap_new(
 
             phase_str = str(compare_phase_str)
 
-            is_sig = res.confidence_interval.low > 0 or res.confidence_interval.high < 0
+            is_sig = res.confidence_interval.low > 0
 
             # return dictionary
             results.append({

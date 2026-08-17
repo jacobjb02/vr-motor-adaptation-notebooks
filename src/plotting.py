@@ -29,7 +29,7 @@ def plot_aftereffects(data,
                       facet_col = 'block_num',
                       facet_row = 'water_speed',
                       target_col = 'target',
-                      marker_variable_list = ['is_sig_from_baseline', 'is_sig_from_training_1'],
+                      marker_variable_list = ['is_sig_from_baseline'],
                       x_col = 'trial_in_block',
                       y_col = 'target'
                      ):
@@ -54,19 +54,19 @@ def plot_aftereffects(data,
         legend=False  
     )  
     
-    # LAYER 2: STARS
-    g.map_dataframe(  
-        sns.scatterplot,  
-        x=x_col,  
-        y=y_col,  
-        hue=target_col,             
-        palette=TARGET_PALETTE,            
-        style=marker_variable_list[1],  
-        markers={True: "*", False: "."},  
-        size=marker_variable_list[1],  
-        sizes={True: 100, False: 0},  
-        legend=False  
-    )  
+    # # LAYER 2: STARS
+    # g.map_dataframe(  
+    #     sns.scatterplot,  
+    #     x=x_col,  
+    #     y=y_col,  
+    #     hue=target_col,             
+    #     palette=TARGET_PALETTE,            
+    #     style=marker_variable_list[1],  
+    #     markers={True: "*", False: "."},  
+    #     size=marker_variable_list[1],  
+    #     sizes={True: 100, False: 0},  
+    #     legend=False  
+    # )  
   
     return g
 
