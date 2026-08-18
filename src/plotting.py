@@ -206,7 +206,7 @@ def plot_all_trials(
         context='notebook',
         marker_size=2,
         font_scale=1,
-        save_path='../figures/all_trials.png',
+        save_path='../figures/all_trials_error.svg',
         dpi=300
     ):
 
@@ -436,7 +436,7 @@ def plot_all_trials(
                                     alpha=0.25, color=color, linewidth=0
                                 )
 
-    g.fig.set_size_inches(10, 12)
+    g.fig.set_size_inches(12, 8)
 
     # --- AXIS FORMATTING & REFERENCE LINES ---
     visible_bottom_axes = {}
@@ -491,7 +491,7 @@ def plot_all_trials(
 
     for ax in visible_bottom_axes.values():
         ax.xaxis.set_tick_params(labelbottom=True)
-        ax.set_xlabel(x_col, fontsize=11, fontweight='bold')
+        ax.set_xlabel(x_col, fontsize=22, fontweight='bold')
     for ax in visible_left_axes.values():
         ax.yaxis.set_tick_params(labelleft=True)
         ax.set_ylabel(y_col, fontsize=11, fontweight='bold')
@@ -1815,11 +1815,11 @@ def plot_slopes(
     hue_var,
     facet_row,
     facet_col,
-    hit_bounds = [-5.0, 5.0],
+    hit_bounds = [-8.75,8.75],
     facet_aspect=0.75,
     facet_height=3.5,
-    y_lim = (-100,150),
-    save_path='../figures/violin_with_slopes.png',
+    y_lim = (-75,125),
+    save_path='../figures/violin_with_slopes.svg',
     dpi=300
 ):
 
@@ -1940,7 +1940,7 @@ def plot_slopes_target_swaps(
     facet_row,
     facet_col,
     palette=TARGET_PALETTE,
-    hit_bounds = [-5.0, 5.0],
+    hit_bounds = [-8.75, 8.75],
     facet_aspect=0.75,
     facet_height=3.5,
     y_lim = (-100,150),
