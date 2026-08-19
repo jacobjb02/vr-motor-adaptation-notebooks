@@ -31,7 +31,11 @@ def plot_aftereffects(data,
                       target_col = 'target',
                       marker_variable_list = ['is_sig_from_baseline'],
                       x_col = 'trial_in_block',
-                      y_col = 'target'
+                      y_col = 'target',
+                      context='notebook',
+                      font_scale=1.2,
+                      save_path='../figures/aftereffects_binary.svg',
+                      dpi=300
                      ):
 
     data = data.copy()
@@ -52,7 +56,12 @@ def plot_aftereffects(data,
         size=marker_variable_list[0],  
         sizes={True: 125, False: 0}, 
         legend=False  
-    )  
+    ) 
+    
+    # save figure
+    if save_path:
+        g.fig.savefig(save_path, dpi=dpi)
+    
     
     # # LAYER 2: STARS
     # g.map_dataframe(  
@@ -206,7 +215,7 @@ def plot_all_trials(
         context='notebook',
         marker_size=2,
         font_scale=1,
-        save_path='../figures/all_trials_error.svg',
+        save_path='../figures/all_trials.svg',
         dpi=300
     ):
 
@@ -491,7 +500,7 @@ def plot_all_trials(
 
     for ax in visible_bottom_axes.values():
         ax.xaxis.set_tick_params(labelbottom=True)
-        ax.set_xlabel(x_col, fontsize=22, fontweight='bold')
+        ax.set_xlabel(x_col, fontsize=11, fontweight='bold')
     for ax in visible_left_axes.values():
         ax.yaxis.set_tick_params(labelleft=True)
         ax.set_ylabel(y_col, fontsize=11, fontweight='bold')

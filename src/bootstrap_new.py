@@ -64,6 +64,23 @@ def run_bootstrap_new(
                 )
 
 
+            if trial == 203 or trial == 209:
+                print(f"experiment = {ws_val} | target = {target} | trial = {trial}")
+
+                # CI bounds
+                ci_low = res.confidence_interval.low
+                ci_high = res.confidence_interval.high
+
+                plt.hist(res.bootstrap_distribution.flatten(), bins=30)
+
+                # show CI
+                plt.axvspan(ci_low, ci_high, color='green', alpha=0.2)
+                
+                plt.xlabel('Bootstrapped Mean Launch Deviation Diffs')
+                plt.ylabel('Count')
+                plt.show()
+
+
             # if compare_phase_str == 'baseline':
 
             #     is_sig = res.confidence_interval.low > 0 or res.confidence_interval.high < 0
@@ -97,6 +114,8 @@ def run_bootstrap_new(
                         f'n_ppid_{phase_str}': len(diffs),
                         f'is_sig_from_{phase_str}': is_sig
             })
+
+            
                 
 
         return pd.DataFrame(results).sort_values(['water_speed','target','trial'])
