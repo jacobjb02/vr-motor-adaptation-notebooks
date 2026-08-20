@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from src.plotting import plot_min_x_z
+
 
 
 def compute_PCA_summary(data,
@@ -92,21 +94,21 @@ def compute_PCA_error(trial_df,
 
     # Diagnostic: Visualize unrotating target data-clouds    
     if show_plots == True:
-        g = sns.relplot(
-            data=trial_df, 
-            x='unrotated_x', 
-            y='unrotated_z',
-            col='target_x_label',  
-            row='water_speed_binary',
-            alpha=0.15,
-            kind='scatter'
+        plot_min_x_z(
+            data=trial_df,
+            x_col='unrotated_x',
+            y_col='unrotated_z',
+            x_col_title='Unrotated X (cm)',
+            y_col_title='Unrotated Z (cm)',
+            c_col='target_x_label',
+            r_col='water_speed_m_s',
+            hue_col='water_speed_binary',
+            x_lim=[-187.5, 187.5],
+            y_lim=[-125, 250],
+            # show_target=True,
+            facet_height=4.0,
+            facet_aspect=1.0
         )
-        # Apply grid to all faceted subplots
-        for ax in g.axes.flat:
-            ax.grid(True)
-        
-        plt.show()
-
 
     # apply same unrotation to targets
     trial_df['tgt_centered_x'] = trial_df[target_x_col] - trial_df['pc_vector_1_pca_center_x']
@@ -116,7 +118,7 @@ def compute_PCA_error(trial_df,
     trial_df['tgt_unrotated_z'] = (trial_df['tgt_centered_x'] * sin_t) + (trial_df['tgt_centered_z'] * cos_t)
     
     # x and z orthogonal errors
-    trial_df['PCA_extent_error_cm'] = (trial_df['unrotated_x'] - trial_df['tgt_unrotated_x']) 
+    trial_df['PCA_error_X_cm'] = (trial_df['unrotated_x'] - trial_df['tgt_unrotated_x']) 
     trial_df['PCA_error_Z_cm'] = (trial_df['unrotated_z'] - trial_df['tgt_unrotated_z']) 
 
     
@@ -124,11 +126,11 @@ def compute_PCA_error(trial_df,
     if show_plots == True:
         g = sns.relplot(
             data=trial_df, 
-            x='PCA_extent_error_cm', 
+            x='PCA_error_X_cm', 
             y='PCA_error_Z_cm',
             col='target_x_label',  
             row='water_speed_binary',
-            hue='set_order',
+            hue='target_hit',
             alpha=0.15,
             palette='viridis',            
             kind='scatter'

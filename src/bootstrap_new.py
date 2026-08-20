@@ -65,16 +65,18 @@ def run_bootstrap_new(
 
 
             if trial == 203 or trial == 209:
-                print(f"experiment = {ws_val} | target = {target} | trial = {trial}")
+                print(f"comparing washout to {compare_phase_str} | experiment = {ws_val} | target = {target} | trial = {trial}")
 
                 # CI bounds
                 ci_low = res.confidence_interval.low
                 ci_high = res.confidence_interval.high
 
-                plt.hist(res.bootstrap_distribution.flatten(), bins=30)
+                plt.hist(res.bootstrap_distribution.flatten(), bins=30, alpha=0.7)
 
                 # show CI
-                plt.axvspan(ci_low, ci_high, color='green', alpha=0.2)
+                plt.axvspan(ci_low, ci_high, color='green', alpha=0.15)
+                # show vertical line at 0
+                plt.axvline(x=0, color='red', linestyle='--', linewidth=3.0, alpha=0.7)
                 
                 plt.xlabel('Bootstrapped Mean Launch Deviation Diffs')
                 plt.ylabel('Count')
