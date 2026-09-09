@@ -215,7 +215,7 @@ def plot_all_trials(
         context='notebook',
         marker_size=2,
         font_scale=1,
-        save_path='../figures/all_trials.svg',
+        save_path='../figures/all_trials.png',
         dpi=300
     ):
 
