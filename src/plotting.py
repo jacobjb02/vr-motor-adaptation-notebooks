@@ -2068,9 +2068,18 @@ def plot_slopes_target_swaps(
 # solution space
 import matplotlib.patches as patches
 
-def plot_solution_space_heatmap(data, x_col, y_col, water_col, target_col, colour_col, palette=['black','#D7191C'], show_centre_sd=True,
-                               save_path='../figures/solution_heatmap.png', dpi=300):
-    water_speeds = [-3, -2]
+def plot_solution_space_heatmap(data, 
+                                x_col, 
+                                y_col, 
+                                water_col, 
+                                water_speeds,
+                                target_col, 
+                                colour_col, 
+                                palette=['black','#D7191C'], 
+                                show_centre_sd=True,
+                                save_path='../figures/solution_heatmap.png', 
+                                dpi=300):
+    
     targets = { 'L60' : [-.6, 0, 1.4],
                 'L30' : [-.3, 0, 1.4],
                 'R30' : [ .3, 0, 1.4],
@@ -2080,9 +2089,10 @@ def plot_solution_space_heatmap(data, x_col, y_col, water_col, target_col, colou
     speedranges = {}
     radius = 0.175/2
     
-    fig, axs = plt.subplots(len(water_speeds), len(targets), figsize=(12, 6), squeeze=False)
+    fig, axs = plt.subplots(len(water_speeds), len(targets), figsize=(12, 3), squeeze=False) # 12,6
     
     for water_speed_idx in range(len(water_speeds)):
+        
         water_speed = water_speeds[water_speed_idx]
         bunch[str(water_speed)] = {}
         speedranges[str(water_speed)] = {}
@@ -2092,122 +2102,136 @@ def plot_solution_space_heatmap(data, x_col, y_col, water_col, target_col, colou
             target = targets[target_name]
             target_angle = (np.arctan2(target[2], target[0]) / np.pi) * 180
 
-
-            relative_string_path = f'../data/solution_space/errors_{water_speed}_{target_name}.csv'
-            errors = pd.read_csv(relative_string_path, header=0, index_col=0)            
-            angles = [(float(x)-target_angle) * -1.0 for x in list(errors.columns.to_numpy())]
-            speeds = list(errors.index.to_numpy())
-            errors_np = errors.to_numpy()
-    
-            errors_np = errors_np - radius
-            errors_np = np.maximum(errors_np, np.zeros_like(errors_np))
-    
-            min_x = []
-            min_y = []
-            max_x = []
-            max_y = []
-            range_x = []
-            range_y = []
-    
-            for angle_idx in range(len(angles)):
-                angle = angles[angle_idx]
-    
-                if any(errors_np[:,angle_idx] < 1e-6):
-                    minspeed = speeds[int(np.min((errors_np[:,angle_idx] < 1e-6).nonzero()[0]))]
-                    maxspeed = speeds[int(np.max((errors_np[:,angle_idx] < 1e-6).nonzero()[0]))]
-    
-                    min_x.append(angle)
-                    min_y.append(minspeed)
-                    max_x.append(angle)
-                    max_y.append(maxspeed)
-    
-                    range_x.append(angle)
-                    range_y.append(maxspeed-minspeed)
-    
-            my_ax = axs[water_speed_idx, target_idx]
-
-            if target_idx < 2:
-                
-                my_ax.set_xticks(range(-20, 101, 20))
-                my_ax.set_yticks(range(0, 7, 1))
-                my_ax.set_xlim(-20, 100)
-                my_ax.set_ylim(0.5, 6)
-                
-            else:
-                my_ax.set_xticks(range(-40, 81, 20))
-                my_ax.set_yticks(range(0, 7, 1))
-                my_ax.set_xlim(-40, 80)
-                my_ax.set_ylim(0.5, 6)
-                
-
-            my_ax.grid(True, which='both', linestyle='-', linewidth=0.5, color='gray')
-            
-            X = max_x + min_x[::-1]
-            
+                    
             # Filter data for the specific cell in the FacetGrid
             subset_data = data[(data[water_col] == water_speed) & (data[target_col] == target_name)]
 
-            # scatter
-            sns.scatterplot(
-                data=subset_data, 
-                x=x_col, 
-                y=y_col,
-                hue=colour_col,
-                palette=palette,
-                ax=my_ax,      
-                alpha=0.75, 
-                s=12.5,
-                legend=False
-            )
+            my_ax = axs[water_speed_idx, target_idx]
+    
+            # include data in facet if subset_data is NOT empty (i.e., there is at least one datapoint for this facet)
+            if len(subset_data) > 1:
 
-            if show_centre_sd:
-                
-                    grouped = subset_data.groupby(colour_col, observed=True)     
-                    
-                    for label, group in grouped:
-                        med_x = group[x_col].mean()
-                        med_y = group[y_col].mean()
-                        sd_x = group[x_col].std()
-                        sd_y = group[y_col].std()
-                        
-                        plot_color = palette[label] if isinstance(palette, dict) and label in palette else 'black'
-                        if isinstance(palette, list):
-                            unique_levels = list(data[colour_col].unique())
-                            if label in unique_levels:
-                                plot_color = palette[unique_levels.index(label)]
-                    
-                        lower_left_x = med_x - sd_x
-                        lower_left_y = med_y - sd_y
-                        width = sd_x * 2
-                        height = sd_y * 2
-                        
-                        square = patches.Rectangle((lower_left_x, lower_left_y), width, height, linewidth=2, edgecolor=plot_color, facecolor='none')
-                        my_ax.add_patch(square)
-                        my_ax.scatter(med_x, med_y, color='gold', marker='X', s=50, edgecolor=plot_color, linewidth=1.0, zorder=100)
+                relative_string_path = f'../data/solution_space/errors_{water_speed}_{target_name}.csv'
+                errors = pd.read_csv(relative_string_path, header=0, index_col=0)            
+                angles = [(float(x)) for x in list(errors.columns.to_numpy())]
+                speeds = list(errors.index.to_numpy())
+                errors_np = errors.to_numpy()
         
+                errors_np = errors_np - radius
+                errors_np = np.maximum(errors_np, np.zeros_like(errors_np))
+        
+                min_x = []
+                min_y = []
+                max_x = []
+                max_y = []
+                range_x = []
+                range_y = []
+        
+                for angle_idx in range(len(angles)):
+                    angle = angles[angle_idx]
+        
+                    if any(errors_np[:,angle_idx] < 1e-6):
+                        minspeed = speeds[int(np.min((errors_np[:,angle_idx] < 1e-6).nonzero()[0]))]
+                        maxspeed = speeds[int(np.max((errors_np[:,angle_idx] < 1e-6).nonzero()[0]))]
+        
+                        min_x.append(angle)
+                        min_y.append(minspeed)
+                        max_x.append(angle)
+                        max_y.append(maxspeed)
+        
+                        range_x.append(angle)
+                        range_y.append(maxspeed-minspeed)
 
-            # Plot solution space fill
-            my_ax.fill(max_x + min_x[::-1], max_y + min_y[::-1], alpha=0.75, facecolor='none', edgecolor='darkblue', linewidth=2.0)
-                        
-            if water_speed == -3:
-                my_ax.set_title(target_name)
-                my_ax.set_xlabel('')
-            else:
-                my_ax.set_xlabel('launch deviation (°)')
-    
-            if target_name == 'L60':
-                my_ax.set_ylabel('launch speed (m/s)')
-            else:
-                 my_ax.set_ylabel('')
-
+                target_angle = (np.arctan2(target[2], target[0]) / np.pi) * 180
+                my_ax.plot([target_angle, target_angle],[0,8], color='orange', linestyle='dashed')
             
-            # X_coords = max_x + min_x[::-1]
-            # X_adjusted = [float(x) - target_angle for x in X_coords]
-            # Y_coords = max_y + min_y[::-1]
+                if target_idx < 2:
+                    
+                    my_ax.set_xticks(range(0, 121, 20))
+                    my_ax.set_yticks(range(0, 7, 1))
+                    my_ax.set_xlim(0, 120)
+                    my_ax.set_ylim(0.5, 6)
+                    
+                else:
+                    my_ax.set_xticks(range(0, 121, 20))
+                    my_ax.set_yticks(range(0, 7, 1))
+                    my_ax.set_xlim(0, 120)
+                    my_ax.set_ylim(0.5, 6)
+
+                    
+                    
     
-            # bunch[str(water_speed)][target_name] = {'x': X_adjusted, 'y': Y_coords}
-            # X_range_adjusted = [x - target_angle for x in range_x]
-            # speedranges[str(water_speed)][target_name] = {'x': X_range_adjusted, 'y': range_y}
+                my_ax.grid(True, which='both', linestyle='-', linewidth=0.5, color='gray')
+                
+                X = max_x + min_x[::-1]
+    
+                # scatter
+                sns.scatterplot(
+                    data=subset_data, 
+                    x=x_col, 
+                    y=y_col,
+                    hue=colour_col,
+                    palette=palette,
+                    ax=my_ax,      
+                    alpha=0.75, 
+                    s=12.5,
+                    legend=False
+                )
+    
+                if show_centre_sd:
+                    
+                        grouped = subset_data.groupby(colour_col, observed=True)     
+                        
+                        for label, group in grouped:
+                            med_x = group[x_col].mean()
+                            med_y = group[y_col].mean()
+                            sd_x = group[x_col].std()
+                            sd_y = group[y_col].std()
+                            
+                            plot_color = palette[label] if isinstance(palette, dict) and label in palette else 'black'
+                            if isinstance(palette, list):
+                                unique_levels = list(data[colour_col].unique())
+                                if label in unique_levels:
+                                    plot_color = palette[unique_levels.index(label)]
+                        
+                            lower_left_x = med_x - sd_x
+                            lower_left_y = med_y - sd_y
+                            width = sd_x * 2
+                            height = sd_y * 2
+                            
+                            square = patches.Rectangle((lower_left_x, lower_left_y), width, height, linewidth=2, edgecolor=plot_color, facecolor='none')
+                            my_ax.add_patch(square)
+                            my_ax.scatter(med_x, med_y, color='gold', marker='X', s=50, edgecolor=plot_color, linewidth=1.0, zorder=100)
+            
+    
+                # Plot solution space fill
+                my_ax.fill(max_x + min_x[::-1], max_y + min_y[::-1], alpha=0.75, facecolor='none', edgecolor='darkblue', linewidth=2.0)
+                            
+                if water_speed == -3:
+                    my_ax.set_title(target_name)
+                    my_ax.set_xlabel('')
+                else:
+                    my_ax.set_xlabel('launch deviation (°)')
+        
+                if target_name == 'L60':
+                    my_ax.set_ylabel('launch speed (m/s)')
+                else:
+                     my_ax.set_ylabel('')
+
+            else:
+
+                # hide empty facets
+                my_ax.set_visible(False)
+                continue
+    
+                
+                # X_coords = max_x + min_x[::-1]
+                # X_adjusted = [float(x) - target_angle for x in X_coords]
+                # Y_coords = max_y + min_y[::-1]
+        
+                # bunch[str(water_speed)][target_name] = {'x': X_adjusted, 'y': Y_coords}
+                # X_range_adjusted = [x - target_angle for x in range_x]
+                # speedranges[str(water_speed)][target_name] = {'x': X_range_adjusted, 'y': range_y}
 
     if save_path:
         fig.savefig(save_path, dpi=dpi)

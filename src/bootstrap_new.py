@@ -22,6 +22,7 @@ def run_bootstrap_new(
     target_col,
     water_state_col,
     trial_col,
+    experiment_col,
     phase_col = 'phase',
     n_trials = 8,
     water_speed_col = 'speed_label',
@@ -64,7 +65,7 @@ def run_bootstrap_new(
                 )
 
 
-            if trial == 203 or trial == 209:
+            if trial == 294 or trial == 301: # 203, 209
                 print(f"comparing washout to {compare_phase_str} | experiment = {ws_val} | target = {target} | trial = {trial}")
 
                 # CI bounds
@@ -111,9 +112,9 @@ def run_bootstrap_new(
                         'target': target,
                         'trial': trial,
                         f'mean_change_from_{phase_str}': np.mean(diffs),
-                        f'ci_low_{phase_str}': res.confidence_interval.low,
-                        f'ci_high_{phase_str}': res.confidence_interval.high,
-                        f'n_ppid_{phase_str}': len(diffs),
+                        f'ci_low': res.confidence_interval.low,
+                        f'ci_high': res.confidence_interval.high,
+                        f'n_ppid': len(diffs),
                         f'is_sig_from_{phase_str}': is_sig
             })
 
