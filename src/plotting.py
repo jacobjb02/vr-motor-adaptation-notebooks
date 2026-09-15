@@ -1830,6 +1830,7 @@ def plot_slopes(
     facet_aspect=0.75,
     facet_height=3.5,
     y_lim = (-75,125),
+    y_tick_step=25,
     save_path='../figures/violin_with_slopes.svg',
     dpi=300
 ):
@@ -1911,7 +1912,7 @@ def plot_slopes(
 
 
 #    add ticks every 25 units
-    y_ticks = np.arange(y_lim[0], y_lim[1] + 1, 25) 
+    y_ticks = np.arange(y_lim[0], y_lim[1] + 1, y_tick_step) 
     for ax in g.axes.flat:
         ax.set_yticks(y_ticks)
     
