@@ -1831,7 +1831,7 @@ def plot_slopes(
     facet_height=3.5,
     y_lim = (-75,125),
     y_tick_step=25,
-    save_path='../figures/violin_with_slopes.svg',
+    save_path='../figures/violin_with_slopes.png',
     dpi=300
 ):
 
@@ -2090,7 +2090,7 @@ def plot_solution_space_heatmap(data,
     speedranges = {}
     radius = 0.175/2
     
-    fig, axs = plt.subplots(len(water_speeds), len(targets), figsize=(12, 3), squeeze=False) # 12,6
+    fig, axs = plt.subplots(len(water_speeds), len(targets), figsize=(12, 6), squeeze=False) # 12,3
     
     for water_speed_idx in range(len(water_speeds)):
         
