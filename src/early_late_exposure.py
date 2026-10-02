@@ -3,10 +3,60 @@ import numpy as np
 import pandas as pd
 
 
+def extract_ranges_index(data,
+                   time_col,
+                   ranges,
+                   group_cols,
+                   phases_to_keep,
+                   phase_col='phase'
+                  ):
+
+    df = data.copy()
+
+    # filter df for phases_to_keep
+    df_phases = df[df[phase_col].isin(phases_to_keep)]
+
+    sort_cols = group_cols + [phase_col, time_col]
+    df_phases = df_phases.sort_values(by=sort_cols).reset_index(drop=True)
+
+    # initialize
+    df_phases['trial_set'] = None
+    grp = df_phases.groupby(group_cols + [phase_col])
+
+
+    for group_key, group_df in grp:
+
+        # go into group_df and extract ranges based on time_col
+        for r in ranges:
+
+            # extract tuple values in ranges argument
+            start_idx, end_idx = r
+
+            sub_df = group_df.iloc[start_idx:end_idx] # is between indicies of listed ranges 
+
+            # skip if group too small for range
+            if sub_df.empty:
+                continue
+
+            target_indicies = sub_df.index
+            label = f"range_{start_idx}_{end_idx}"
+            df_phases.loc[target_indicies, 'trial_set'] = label
+
+
+    # if timepoints row includes None, drop it
+    df_out = df_phases[df_phases['trial_set'].notna()].copy()
+    # make trial set a factor
+    df_out['trial_set'] = df_out['trial_set'].astype("category")
+    
+    return df_out
+    
+
+    
+
 
 def early_late_phase_new(df, group_cols, phase_col, phases_to_keep, trial_col, n_trials):
     df = df[df[phase_col].isin(phases_to_keep)].copy()
-    df = df.sort_values(by=group_cols + [trial_col] + [phase_col])
+    df = df.sort_values(by=group_cols + [phase_col] + [trial_col])
     
     # Group once and count row positions from front and back
     grp = df.groupby(group_cols + [phase_col])

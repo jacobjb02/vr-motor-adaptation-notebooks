@@ -14,6 +14,8 @@ from matplotlib.colors import TwoSlopeNorm, Normalize
 import matplotlib.lines as mlines
 import scipy.stats as stats
 
+
+
 # Global static color mapping for targets
 _colors = sns.color_palette(["#FF0000", "#0000FF", "#FF4500", "#05472A"])
 TARGET_PALETTE = {
@@ -1827,13 +1829,17 @@ def plot_slopes(
     facet_row,
     facet_col,
     hit_bounds = [-8.75,8.75],
-    facet_aspect=0.75,
+    facet_aspect=1.5,
     facet_height=3.5,
-    y_lim = (-75,125),
+    y_lim = (-100,150),
     y_tick_step=25,
-    save_path='../figures/violin_with_slopes.png',
+    save_path='../figures/violin_with_slopes.svg',
     dpi=300
 ):
+
+
+    # initialize random state
+    np.random.seed(42)
 
 
     data = data.copy()
