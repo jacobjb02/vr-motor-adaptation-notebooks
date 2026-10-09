@@ -1829,11 +1829,11 @@ def plot_slopes(
     facet_row,
     facet_col,
     hit_bounds = [-8.75,8.75],
-    facet_aspect=1.5,
+    facet_aspect=0.75,
     facet_height=3.5,
     y_lim = (-100,150),
     y_tick_step=25,
-    save_path='../figures/violin_with_slopes.svg',
+    save_path='../figures/violin_with_slopes.png',
     dpi=300
 ):
 
