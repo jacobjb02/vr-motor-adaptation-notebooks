@@ -28,7 +28,7 @@ def run_bootstrap_new(
     water_speed_col = 'speed_label',
     compare_phase_str = 'baseline',
     washout_str = 'washout_1',
-    n_resamples=9999
+    n_resamples=10000
 ):
 
         # subset baseline to final n trials
@@ -112,9 +112,9 @@ def run_bootstrap_new(
                         'target': target,
                         'trial': trial,
                         f'mean_change_from_{phase_str}': np.mean(diffs),
-                        f'ci_low': res.confidence_interval.low,
-                        f'ci_high': res.confidence_interval.high,
-                        f'n_ppid': len(diffs),
+                        f'ci_low_{phase_str}': res.confidence_interval.low,
+                        f'ci_high_{phase_str}': res.confidence_interval.high,
+                        f'n_ppid_{phase_str}': len(diffs),
                         f'is_sig_from_{phase_str}': is_sig
             })
 
